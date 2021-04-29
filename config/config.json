@@ -1,0 +1,10 @@
+{
+    "path": {
+        "data": "/home/ubuntu/lora/luvit-app-x86_64-test/lora-system_lua/data/"
+        // "config": "./config/"
+    },
+    "udp": {
+        "ip": "192.168.11.132",
+        "port": 12234
+    }
+}

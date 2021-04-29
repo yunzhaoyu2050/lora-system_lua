@@ -1,0 +1,18 @@
+{
+  "DevAddr" = info.DevAddr,
+      "frequencyPlan" = info.frequencyPlan,
+      "ADR" = info.ADR,
+      "ADR_ACK_LIMIT" = info.ADR_ACK_LIMIT,
+      "ADR_ACK_DELAY" = info.ADR_ACK_DELAY,
+      "ChMask" = info.ChMask,
+      "CFList" = info.CFList,
+      "ChDrRange" = info.ChDrRange,
+      "RX1CFList" = info.RX1CFList,
+      "RX1DRoffset" = info.RX1DRoffset,
+      "RX1Delay" = info.RX1Delay,
+      "RX2Freq" = info.RX2Freq,
+      "RX2DataRate" = info.RX2DataRate,
+      "NbTrans" = info.NbTrans,
+      "MaxDCycle" = info.MaxDCycle,
+      "MaxEIRP" = info.MaxEIRP
+}

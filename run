@@ -1,0 +1,14 @@
+#!/bin/bash
+# start run
+if [ $# -eq 0 ] || [ "$@" == "" ]; then
+    echo usage: ./run test/test.lua
+    exit -1
+fi
+curPath=`pwd`
+# $curPath/deps/lua-chan/?.so;
+debugLib="$curPath/deps/debug/lib/?.so" # emmy_core.so EmmyLua调试插件
+# cryptoLib="$curPath/deps/crypto_project/?.so"
+opensslLib="$curPath/deps/lua-openssl/?.so" # openssl.so 
+
+CPATH="${debugLib};${opensslLib};"
+sudo LUA_CPATH="$CPATH;$LUA_CPATH" ../luvit $1
