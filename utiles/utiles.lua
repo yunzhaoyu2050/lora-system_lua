@@ -20,7 +20,7 @@ end
 function BufferWrite(buf, offset, v, length)
   if type(offset) ~= "number" or offset < 1 or offset > buf.length then
     p("[buffer:write] Index out of bounds")
-    return 
+    return
   end
   if type(v) == "string" then
     length = length or #v
@@ -55,6 +55,14 @@ function BufferSlice(buf, offsetStart, offsetEnd)
   end
   local newBuf = buffer:new(offsetEnd - offsetStart + 1)
   ffi.copy(newBuf.ctype, buf.ctype + offsetStart - 1, offsetEnd - offsetStart + 1)
+  return newBuf
+end
+
+-- buffer连接
+function BufferConcat(srcBuf, dstBuf)
+  local newBuf = buffer:new(srcBuf.length + dstBuf.length)
+  ffi.copy(newBuf.ctype + 1 - 1, srcBuf.ctype, srcBuf.length)
+  ffi.copy(newBuf.ctype + srcBuf.length, dstBuf.ctype, dstBuf.length)
   return newBuf
 end
 
@@ -237,18 +245,22 @@ function BufferToTable(srcBuffer)
   return tmp
 end
 
+-- bit写值
+-- @param objByte typebuffer
+-- @param value type:number
 function bitwiseAssigner(objByte, offset, len, value)
   local baseBits = math.pow(2, len) - 1
   local filterBits = bit.lshift(baseBits, offset)
-  -- //All the bitwise operations are based on 32 bits-length int
-  -- //THEREFORE, GET THE LEAST-SIGNIFICANT 8 BITS BY & 0xFF IS CRITICAL!!
-  -- //BUFFER NEEDS TO BE READED AS UINT BEFORE BITWISE OPERATIONS
-  local srcBits = bit.band(bit.band(objByte.readUInt8(), bit.bnot(filterBits)), 0xFF)
+  -- All the bitwise operations are based on 32 bits-length int
+  -- THEREFORE, GET THE LEAST-SIGNIFICANT 8 BITS BY & 0xFF IS CRITICAL!!
+  -- BUFFER NEEDS TO BE READED AS UINT BEFORE BITWISE OPERATIONS
+  local srcBits = bit.band(bit.band(objByte:readUInt8(1), bit.bnot(filterBits)), 0xFF)
   local destBits = bit.band(bit.lshift(value, offset), filterBits)
-  objByte.writeUInt8(srcBits + destBits)
+  objByte:writeUInt8(1,srcBits + destBits)
   return objByte
 end
 
+-- switch
 local Default, Nil = {}, function()
   end -- for uniqueness
 function switch(i)
@@ -271,6 +283,7 @@ return {
   BufferCopy = BufferCopy,
   BufferFill = BufferFill,
   BufferToTable = BufferToTable,
+  BufferConcat = BufferConcat,
   BufferFromHexString = BufferFromHexString,
   BufferToAsciiString = BufferToAsciiString,
   BEToLE = BEToLE,

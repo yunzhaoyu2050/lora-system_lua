@@ -6,6 +6,7 @@ local MySQLModelsAppInfo = require("./MySQLModels/AppInfo.lua")
 local MySQLModelsDeviceInfo = require("./MySQLModels/DeviceInfo.lua")
 local MySQLModelsDeviceConfig = require("./MySQLModels/DeviceConfig.lua")
 local MySQLModelsGatewayInfo = require("./MySQLModels/GatewayInfo.lua")
+local MySQLDeviceRouting = require("./MySQLModels/DeviceRouting.lua")
 
 local Models = {}
 
@@ -33,6 +34,7 @@ function Models.Init()
     p("MySQLModelsGatewayInfo init failed")
     return -4
   end
+  ret = MySQLDeviceRouting.Init()
   -- 初始化Redis模型
   RedisModelsDeviceInfo.Init()
   RedisModelsGatewayInfo.Init()

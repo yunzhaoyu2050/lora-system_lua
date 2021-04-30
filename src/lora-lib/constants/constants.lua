@@ -192,11 +192,18 @@ function consts.Init()
     TMST_OFFSET = 1000000,
     TMST_OFFSET_JOIN = 5000000,
     FREQ = {
-      -- TODO:
-      FREQ = 430, -- FREQ = FREQ,
-      CHAN = 923.3 + (8 % 8) * 0.6 -- CHAN = 923.3 + (CHAN % 8) * 0.6
-      -- FREQ = FREQ,
-      -- FREQ = FREQ
+      [1] = function(callBack)
+        return callBack()
+      end, -- FREQ = FREQ,
+      [2] = function(callBack)
+        return 923.3 + (callBack() % 8) * 0.6
+      end, -- CHAN = 923.3 + (CHAN % 8) * 0.6
+      [3] = function(callBack)
+        return callBack()
+      end,
+      [4] = function(callBack)
+        return callBack()
+      end
     },
     POWE = {25, 20, 20, 20}
   }

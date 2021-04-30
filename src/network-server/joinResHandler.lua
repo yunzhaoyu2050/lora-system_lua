@@ -1,5 +1,14 @@
 -- local mqHandle = require("../src/common/message_queue.lua")
 local joinServer = require("../join-server/join.lua")
+local consts = require("../lora-lib/constants/constants.lua")
+local MySQLDeviceConfig = require("../lora-lib/models/MySQLModels/DeviceConfig.lua")
+local MySQLDeviceInfo = require("../lora-lib/models/MySQLModels/DeviceInfo.lua")
+local MySQLDeviceRouting = require("../lora-lib/models/MySQLModels/DeviceRouting.lua")
+local RedisDeviceInfo = require("../lora-lib/models/RedisModels/DeviceInfo.lua")
+local buffer = require("buffer").Buffer
+local utiles = require("../../utiles/utiles.lua")
+
+-- join下行数据处理
 function handler(convertedData)
   -- // return BluebirdPromise.all([
   -- //   _this.DeviceStatus.createItem(convertedData),
@@ -11,18 +20,29 @@ end
 -- join request 处理句柄
 function joinRequestHandle(joinResArr)
   p("Send join message to JS-sub")
-  joinServer.handleMessage(joinResArr) -- 把joinRequest数据推送至join-server模块
+  local ret = joinServer.handleMessage(joinResArr) -- 把joinRequest数据推送至join-server模块
   return ret
 end
 
+function getIndexByVal(table, val)
+  for i, v in pairs(table) do
+    if v == val then
+      return i
+    end
+  end
+  p("no find index")
+  return 0
+end
+
+-- 更新join请求设备路由信息
 function updateJoinDeviceRouting(deviceStatus)
   local freqPlanOffset
-  function getDatr(datr, RX1DROFFSET)
+  local function getDatr(datr, RX1DROFFSET)
     local dr = consts.DR_PARAM
     local RX1DROFFSETTABLE = dr.RX1DROFFSETTABLE[freqPlanOffset]
     local DRUP = dr.DRUP[freqPlanOffset]
     local DRDOWN = dr.DRDOWN[freqPlanOffset]
-    for key, v in pairs(DRDOWN) do
+    for key, _ in pairs(DRDOWN) do
       if RX1DROFFSETTABLE[DRUP[datr]][RX1DROFFSET] == DRDOWN[key] then
         return key
       end
@@ -31,8 +51,8 @@ function updateJoinDeviceRouting(deviceStatus)
   end
 
   local whereOpts = {DevAddr = deviceStatus.DevAddr}
-  -- // return _this.deviceConfig.read(whereOpts.DevAddr).then(function (res) {
-  local res = DeviceConfig.readItem(whereOpts)
+
+  local res = MySQLDeviceConfig.readItem(whereOpts) -- mysql
   if res then
     if res.frequencyPlan == nil then
       p("DevAddr does not exist frequencyPlan in DeviceConfig")
@@ -44,15 +64,21 @@ function updateJoinDeviceRouting(deviceStatus)
       return -3
     end
 
-    -- freqPlanOffset = consts.FREQUENCY_PLAN_LIST.findIndex(function (value, index, array) { -- ??
-    --   return value === res.frequencyPlan;
-    -- });
+    freqPlanOffset = getIndexByVal(consts.FREQUENCY_PLAN_LIST, res.frequencyPlan)
 
     local updateOpts = {
-      DevAddr = buffer:new(deviceStatus.DevAddr, "hex"),
-      gatewayId = buffer:new(deviceStatus.gatewayId, "hex"),
+      DevAddr = deviceStatus.DevAddr,
+      gatewayId = deviceStatus.gatewayId,
       tmst = deviceStatus.tmst + consts.TXPK_CONFIG.TMST_OFFSET_JOIN,
-      -- freq= consts.TXPK_CONFIG.FREQ[freqPlanOffset]
+      freq = consts.TXPK_CONFIG.FREQ[freqPlanOffset](
+        function()
+          if freqPlanOffset == (consts.PLANOFFSET915 + 1) then
+            return deviceStatus.chan
+          else
+            return deviceStatus.freq
+          end
+        end
+      ),
       --   (freqPlanOffset === consts.PLANOFFSET915 ? deviceStatus.chan : deviceStatus.freq),
       powe = consts.TXPK_CONFIG.POWE[freqPlanOffset],
       datr = getDatr(deviceStatus.datr, res.RX1DRoffset),
@@ -72,21 +98,20 @@ function updateJoinDeviceRouting(deviceStatus)
     }
 
     -- // updateOpts.DevAddr = Buffer.from(deviceStatus.DevAddr, 'hex');
-    local res = DeviceRouting.UpdateItem(updateOpts)
+    local res = MySQLDeviceRouting.UpdateItem(query, updateOpts)
     if res < 0 then
       return -2
     end
-    res = DeviceInfoMysql.readItem(query, consts.DEVICEINFO_CACHE_ATTRIBUTES)
-
+    res = MySQLDeviceInfo.readItem(query, consts.DEVICEINFO_CACHE_ATTRIBUTES)
     for k, v in pairs(res) do
       devInfo[k] = v
     end
-    res = DeviceRouting.readItem(query, consts.DEVICEROUTING_CACHE_ATTRIBUTES)
+    res = MySQLDeviceRouting.readItem(query, consts.DEVICEROUTING_CACHE_ATTRIBUTES)
     for k, v in pairs(res) do
       devInfo[k] = v
     end
     -- // console.log(devInfo);
-    return _DeviceInfoRedis.update(updateOpts.DevAddr, devInfo)
+    return RedisDeviceInfo.UpdateItem({DevAddr = updateOpts.DevAddr}, devInfo)
 
   -- // .then(() => {
   -- //   return _this.DeviceInfoRedis.read(updateOpts.DevAddr)

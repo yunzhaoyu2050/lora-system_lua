@@ -60,7 +60,7 @@ function rxInfoConverter(uplinkDataJson)
   rfPacketObject.DevAddr = uplinkDataJson.rxpk.data.MACPayload.FHDR.DevAddr
   return rfPacketObject
 end
-
+-- 节点数据转换
 function joinRfConverter(joinDataJson)
   local rfPacketObject = {}
   for k, v in pairs(joinDataJson.rxpk) do
@@ -110,15 +110,6 @@ function uplinkDataHandler(jsonData)
         p('Uplink Json has no "data" in rxpk')
         return -2
       end
-      local messageType = uplinkDataJson.rxpk.data.MHDR.MType
-      if messageType == consts.JS_MSG_TYPE.request then
-        -- Join request message
-        ret = joinResHandler.joinRequestHandle(uplinkDataJson) -- 把业务数据推送至join-server模块
-        p("Receive repeated join request message")
-        -- TODO update downlink routing
-        return 0
-      end
-
       if messageType == consts.UNCONFIRMED_DATA_UP or messageType == consts.CONFIRMED_DATA_UP then
         -- Application message
         ret = appDataConverter(uplinkDataJson)
@@ -126,6 +117,20 @@ function uplinkDataHandler(jsonData)
           p("Receive repeated app data message")
           return _this.appDataHandler.handle(rxInfoArr, appObj)
         end
+      end
+      local messageType = uplinkDataJson.rxpk.data.MHDR.MType
+      if messageType == consts.JS_MSG_TYPE.request then
+        p("Receive repeated join request message")
+        -- Join request message
+        ret = joinResHandler.joinRequestHandle(uplinkDataJson) -- 把业务数据推送至join-server模块
+        if ret == nil then
+          return -6
+        end
+
+        p("Downlink message process")
+        joinAcceptHandler(ret)
+        return 0
+
       end
     elseif uplinkDataJson.stat ~= nil then
       -- });
@@ -252,6 +257,7 @@ end
 --   return BluebirdPromise.resolve(outputObject);
 -- };
 
+-- join-accept消息下行处理
 function joinAcceptHandler(joinAcceptJson)
   local joinAcceptObj = joinAcceptJson
   local joinRfData = joinRfConverter(joinAcceptObj)
@@ -317,5 +323,6 @@ end
 -- };
 -- module.exports = DataConverter;
 return {
-  uplinkDataHandler = uplinkDataHandler
+  uplinkDataHandler = uplinkDataHandler,
+  joinAcceptHandler = joinAcceptHandler
 }

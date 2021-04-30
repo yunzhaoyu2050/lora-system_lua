@@ -1,0 +1,675 @@
+# Changes in 2.17.0
+
+- luvi: bump to v2.10.1
+- core: fix Emitter:removeAllListeners (#1088) [Timothy Van Wonterghem]
+- stream: remove extra argument to doWrite call in stream_writable (#1093) [David Newman]
+- fix abort when redirecting stdout/stderr to file (#1095) [Ryan Liptak]
+- process: fix process.stdin abort when stdin is redirected from a file (#1096) [Ryan Liptak]
+- pretty-print: use try_write for tty stderr/stdout (#1097) [George Zhao]
+- lit: bump to v3.8.1
+
+# Changes in 2.16.0
+
+- require: Match only past last . in file extensions (#1047) [Nameless]
+- Add uncaughtException handler (#1048) [Python1320]
+- http-codec: Fix http-codec failing occasionally during chunked decoding [Ryan Liptak]
+- process: update process.env to use portable iterate [George Zhao]
+- tls: Update to work with OpenSSL 1.1.x [George Zhao]
+- net: fix bug in Socket:shutdown [George Zhao]
+- http: only close socket when ServerResponse not need to keepAlive [George Zhao]
+- http: make luvit not collectgarbage manually (#1071) [George Zhao]
+- childprocess: Fix exec on Windows (#1077) [Ryan Liptak]
+- tls: update ssl to support session reuse for TLSV1.3 (#1079) [George Zhao]
+
+# Changes in 2.15.0
+
+ - examples: Fix http-download.lua statusCode (#1010) [eZethNesthrown]
+ - http: Fix http-codec not reading full header when header has no value (#1021) [Ryan Liptak]
+ - http: Fix parse HTTP status lines (#1039) [George Zhao]
+ - https: Fix bug EAI_NONAME in tls.connect (#1039) [George Zhao]
+ - init: Flush stream on exit (#1007) [Tim Caswell]
+ - net: Fix ignored connect errors (#1031) [Ernest Climent]
+ - net: Fix ignored getaddrinfo errors (#1032) [Ernest Climent]
+ - net: Remove keepalive on listening socket (#1028) [George Zhao]
+ - process: Add process:cpuUsage() and process:memoryUsage() (#1014) [Ryan Liptak]
+ - querystring: Fix bug in update urlencoding (#1040) [George Zhao]
+ - repl: Add simple error handling to REPL autocomplete (#1038) [aiverson]
+ - stream: Fix Stream.Readable.unpipe when piped to multiple streams (#1020) [Ryan Liptak]
+ - timer: Fix timer sleep (#1001) [SinisterRectus]
+ - tls: Update default TLS from TLSv1 to TLSv1.2 (#1041) [George Zhao]
+
+# Changes in 2.14.2
+
+ - print: Miscellaneous fixes and optimizations (#992) [SinisterRectus]
+ - tls: add servername to TLS options [Ryan Phillips]
+
+# Changes in 2.14.1
+
+ - dns: Allow ip addresses in dns resolve to resolve internally. [NiteHawk]
+ - http-codec: Add HTTP status codes of RFC 6585 [Navid]
+ - require: Fix bundle requires on Windows [Squeek]
+ - Support punctuation in http credentials [Charles Farquhar]
+ - Update lit to 3.5.4 [Tim Caswell]
+ - Revert fs change that broke readstreams [Tim Caswell]
+
+# Changes in 2.12.1
+
+ - childprocess: Fix spawn to cleanup correctly (Ryan Phillips)
+
+# Changes in 2.12.0
+
+ - childprocess: Fix `childprogress.exec` return. (Cyril Hou)
+ - ustring: New module to help with unicode strings. (Miigon)
+ - readline: Add new options.cover to hide input (Tim Caswell)
+ - readline: Fix unicode handling using ustring. (Miigon)
+ - repl: Fix unicode handling using ustring (Miigon)
+
+* Changes in 2.11.5
+
+ - Lit to 3.4.3 [Tim Caswell]
+ - Luvi to 2.7.4 [Tim Caswell]
+
+* Changes in 2.11.4
+
+ * dns: error message fix for #918 [Ryan Phillips]
+ * Lit to 3.4.2
+ * Move http.headerMeta to its own package and add util function [Ryan Liptak]
+
+* Changes in 2.11.3
+
+ * Merge all changes from 2.11.1 and 2.11.2 that diverged. [Tim Caswell]
+
+* Changes in 2.11.2
+
+ * fix: do not run readline test if stdin is not a tty [Tim Caswell]
+ * examples: echo examples (#909) [Miigon]
+ * fix: dns resolv.conf usage. Iterator was not honoring the order preference
+   [Ryan Phillips]
+
+* Changes in 2.11.1
+
+ * Update lit to 3.4.1 [Tim Caswell]
+ * Update luvi to 2.7.3 [Tim Caswell]
+ * Changed random seed from os.clock to os.time [SinisterRectus]
+ * Fix error() calls with a non-string message breaking the repl [Ryan Liptak]
+
+* Changes in 2.11.0
+
+ * Fix truncated paths in tracebacks for modules on disk [Tim Caswell]
+ * Add url.resolve and url.format to better match node.js [Ryan Liptak]
+ * Fixes for experimental thread module [George Zhao]
+
+* Changes in 2.10.1
+
+  * Update luvi to 2.7.2 to get up-to-date openssl [Tim Caswell]
+
+* Changes in 2.10.0
+
+  * Update luvi to 2.7.1 [Tim Caswell]
+  * Update lit to 3.3.2 [Tim Caswell]
+  * Update root certs. [Tim Caswell]
+  * Fix bind socket event to http ServerResponse [George Zhao]
+
+* Changes in 2.8.0
+
+  * Use lit-meta format and not depend on global `exports` [Tim Caswell]
+  * Publish all updated modules as 2.0.0 to lit. [Tim Caswell]
+  * Add `resource` module that replaces global `module` methods. [Tim Caswell]
+  * Update root certs. [Tim Caswell]
+  * Update luvi to v2.5.2. [Tim Caswell]
+  * Update lit to v3.0.3. [Tim Caswell]
+
+* Changes in 2.7.4
+
+ * Fix: use system setting for dns server addresses (windows) [Rob Emanuele]
+ * Fix: memory leaks in examples/tcp-echo-server.lua [Miigon]
+
+* Changes in 2.7.3
+
+ * dns: fix for spaces in resolv.conf [Ryan Phillips]
+ * make pretty-print usable outside of luvit [Tim Caswell]
+ * Add support for tostring-able versions of luvi options [Ryan Liptak]
+
+* Changes in 2.7.2
+
+ * luvit: clean up globals some in repl [Tim Caswell]
+ * luvi: update to 2.5.1 [Tim Caswell]
+   * luvi: Don't constantly update timestamps when creating zips. [Tim Caswell]
+   * libuv: Update to v1.8.0 [Tim Caswell]
+   * luv: Add uv.fs_realpath [Tim Caswell]
+   * luv: add netmask to network interface data [George Zhao]
+ * lit: update to 2.3.1 [Tim Caswell]
+   * lit: Make signature verification code more robust [Tim Caswell]
+
+* Changes in 2.7.1
+
+ * luvi: bump lua-openssl [Jörg Krause]
+ * luvi: bump openssl to 1.0.2e [Ryan Phillips]
+ * lit: update to 2.3.0 [Ryan Phillips]
+
+* Changes in 2.7.0
+
+ * luvi: New "snapshot" module to help debug memory leaks [Tim Caswell]
+ * luv: Add `uv.get_free_memory` bindings. [Tim Caswell]
+
+* Changes in 2.6.0
+
+ * http: Remove leak in exit handler. [Tim Caswell]
+ * require: Look in bundle before disk for module requires. [Tim Caswell]
+
+* Changes in 2.5.9
+
+ * libuv: Update to v1.7.5 [Tim Caswell]
+ * luv: Export `luv_loop()` and `luv_state()` [Tim Caswell]
+
+* Changes in 2.5.8
+
+ * childprocess: Add exec and execFile [Kaustav Haldar]
+
+* Changes between 2.5.6 and 2.5.7
+
+ * dns: fix the error callback parameters [Ryan Phillips]
+ * repl: add path to repl autoloads [Kaustav Haldar]
+
+* Changes between 2.5.5 and 2.5.6
+
+ * dns: Improvements to resolve.conf parsing [Simon Vetter]
+
+* Changes between 2.5.4 and 2.5.5
+
+ * luvi: Update to 2.3.4 [Tim Caswell]
+
+* Changes between 2.5.3 and 2.5.4
+
+ * tls: update root certs as of 2015/09/04 [Ryan Phillips]
+
+* Changes between 2.5.2 and 2.5.3
+
+ * json: try to use lpeg by default [George Zhao]
+ * Fix readline module with default options [George Zhao]
+ * Convert legacy test cases to new test framework [George Zhao]
+ * makefile: support custom prefixes [Baptiste Fontaine]
+
+* Changes between 2.5.1 and 2.5.2
+
+ * Show all luvi option versions in `luvit -v` [Ryan Phillips]
+ * libuv: Update libuv to v1.7.2 [Tim Caswell]
+ * luv: Performance tweaks and memory leak fixes for threads [George Zhao]
+ * luvi: Add proper thread linking for luajit [Ryan Phillips]
+ * lit: Fix auth on windows when git isn't installed [Tim Caswell]
+
+* Changes between 2.5.0. and 2.5.1
+
+ * http: call self:finish() on stream _end [Ryan Phillips]
+
+* Changes between 2.4.5 and 2.5.0
+
+ * thread: Tweaks to luvi/luvit to make threading support more modular [Tim Caswell]
+ * thread: Initial thread support [George Zhao]
+ * core: Fix Emitter :once() removal [Tim Caswell]
+
+* Changes between 2.4.4 and 2.4.5
+
+ * udp: start listening for the read after the write. Fixes DNS for ipv6
+   [Ryan Phillips]
+
+* Changes between 2.4.3 and 2.4.4
+
+ * Libuv update to 1.7.0 [Tim Caswell]
+ * lpeg added to luvi [George Zhao]
+ * Repl injects modules [Kaustav Haldar]
+
+* Changes between 2.4.2 and 2.4.3
+
+ * tls: fix infinite loop within handshake [Ryan Phillips]
+
+* Changes between 2.4.1 and 2.4.2
+
+ * spawn: add close event when all stdio are closed [Ryan Phillips]
+
+* Changes between 2.4.0 and 2.4.1
+
+ * Updated luvi to get fixed CRC32. [Tim Caswell]
+ * Add querystring.stringify() [Ryan Liptak]
+ * Fix duplicate headers in http. [Ryan Liptak]
+
+* Changes between 2.3.4 and 2.4.0
+
+ * New "rex" module with PCRE regular expressions as part of luvi update.
+
+* Changes between 2.3.3 and 2.3.4
+
+ * luv: Fix segfault in spawn with missing file [Ryan Phillips]
+ * querystring: Support duplicate keys names and use table [George Zhao]
+
+* Changes between 2.3.2 and 2.3.3
+
+ * childprocess: fix flush and destroy of stdout
+
+* Changes between 2.3.1 and 2.3.2
+
+ * childprocess: do not prematurely close the process handle in
+   spawn [Ryan Phillips]
+
+* Changes between 2.3.0 and 2.3.1
+
+ * fs: Allow using fs.readFile and fs.readFileSync on files where kernel lies
+   about size. [Tim Caswell]
+ * tls: Moved root ca certs to binary format to save memory. [Tim Caswell]
+
+* Changes between 2.2.8 and 2.3.0
+
+ * http: Defer senting headers till first write or finish is attempted [Tim Caswell]
+ * http: Add metatable to headers to allow numerical or keyed access [Tim Caswell]
+ * repl: Run repl commands in coroutine and wait for it to finish [Tim Caswell]
+
+* Changes between 2.2.7 and 2.2.8
+
+ * tls: Add shutdown timer. [Ryan Phillips]
+ * Update luvi to 2.1.5 and lit to 2.1.6 [Tim Caswell]
+
+* Changes between 2.2.6 to 2.2.7
+
+ * Fix TLS destroy pump on socket error [Ryan Phillips]
+
+* Changes between 2.2.5 to 2.2.6
+
+ * Return Error object in fs module
+
+* Changes between 2.2.4 to 2.2.5
+
+ * Fix resolve.conf loading when file is not present [Ryan Phillips]
+
+* Changes between 2.2.3 to 2.2.4
+
+ * Ignore sigpipe by default [Martin Croome]
+ * Add support for TLS client session reuse [George Zhao]
+ * Add uid/gid to spawn API [Martin Croome]
+ * Fix emitter code to handle holes properly [Martin Croome]
+ * Pump shutdown on destroy [Martin Croome]
+ * Update lit to 2.1.4 and luvi to 2.1.3 [Tim Caswell]
+
+* Changes between 2.2.2 to 2.2.3
+
+ * Bump luvi [Ryan Phillips]
+ * Fix process:exit [Ryan Phillips]
+
+* Changes between 2.2.1 to 2.2.2
+
+ * destroy tls socket on end [Ryan Phillips]
+ * flush stdout and stderr stream fix [Ryan Phillips]
+ * fix stack overflow when terminal width is 0 [Tim Caswell]
+ * fix exception if nil string [gsick]
+
+* Changes between 2.2.0 to 2.2.1
+
+ * Bump lit to 2.1.0 [Ryan Phillips]
+ * Stdout/Stderr flush on process:exit [Ryan Phillips]
+ * Don't use require's file cache for module:load() [Tim Caswell]
+ * require fixes [Martin Croome]
+ * net socket fix for destroy [Martin Croome]
+ * load resolver from /etc/resolv.conf on Unix systems [Ryan Phillips]
+ * Disable color output [Martin Croome]
+
+* Changes between 2.1.16 to 2.2.0
+
+ * Update lit to 2.0.3 [Tim Caswell]
+ * Update luvi to v2.1.1 [Tim Caswell]
+
+* Changes between 2.1.15 to 2.1.16
+
+ * Add more coroutine support [Tim Caswell]
+ * TLS Fixes [Ryan Phillips]
+ * Add timer.sleep using coroutines [Tim Caswell]
+ * Add coroutine support to dns queries [Tim Caswell]
+
+* Changes between 2.1.14 to 2.1.15
+
+ * Add stdio options to spawn [Ryan Phillips]
+
+* Changes between 2.1.13 to 2.1.14
+
+ * Bump lit to 1.3.0
+
+* Changes between 2.1.12 to 2.1.13
+
+ * Connection Upgrade Support [Martin Croome]
+ * print error message why realRequire failed [runner]
+ * Expose the TLSSocket [Ryan Phillips]
+
+* Changes between 2.1.11 and 2.1.12
+
+ * Update luvi again to get sni fixes [Tim Caswell]
+
+* Changes between 2.1.9 and 2.1.11
+
+ * Update luvi to get SNI in lua-openssl. [George Zhao]
+ * Rename `fs.mkdirp` to `fs.mkdirpSync` to match behavior. [Tim Caswell]
+ * Update luajit to v2.0.4 [Tim Caswell]
+
+* Changes between 2.1.7 and 2.1.9
+
+ * Update luvi to get libuv v1.5.0 stable and release binaries.
+ * Drop reference to CA certs strings after parding. [Ryan Phillips]
+ * Lit update that compiles all lua source files in bundle [Tim Caswell]
+
+* Changes between 2.1.4 and 2.1.7
+
+ * Update lit to 1.2.2 and luvi to v2.0.5 [Tim Caswell]
+ * Document inter-dependencies between lit packages. [Tim Caswell]
+ * Add metadata to all lit packages. [Tim Caswell]
+ * Fix extension match on windows. [Playermet]
+ * Enhance dump support with `recurs` and `nocolor`. [George Zhao]
+ * Add dgram.setMembership, dgram.addMembership, dgram.dropMembership to support
+   multicast [George Zhao]
+ * Add `module:action()` as portable version of `bundle.action()`. [Tim Caswell]
+
+* Changes between 2.1.3 and 2.1.4
+
+ * lit: Update lit to 1.1.7 and luvi to v2.0.4 [Tim Caswell]
+
+* Changes between 2.1.2 and 2.1.3
+
+ * feat(fs): fs.appendFile [Ryan Phillips]
+ * feat(fs): fs.createWriteStream [Ryan Phillips]
+ * feat(fs): fs.exists and fs.truncate [George Zhao]
+ * fix(fs): WriteStream closes on 'finish' [Ryan Phillips]
+ * fix(buffer): fix bug when luajit link with static run times lib [George Zhao]
+ * Ported a bunch of unit tests from Luvit 1 to Luvit 2 [George Zhao]
+
+* Changes between 2.1.1 and 2.1.2
+
+ * Add module:load, module:scan, module:stat, and module:resolve [Tim Caswell]
+ * Fix repl to have `module` [Tim Caswell]
+ * Improve readline handling [Ryan Liptak]
+
+* Changes between 2.1.0 and 2.1.1
+
+ * fix(fs): fs WriteStream was using append flag [Ryan Phillips]
+ * fix(fs): fs streams need to close the socket on 'end' [Ryan Phillips]
+ * fix(https): pass all options to tls socket [Ryan Phillips]
+ * fix(readline): readline fix for pasted strings [Tim Caswell]
+ * fix(dep): querystring for URL module [Tim Caswell]
+
+* Changes between 2.0.6 and 2.1.0
+
+ * fix(net): double callback in net :_write [Ryan Phillips]
+ * cleanup(encoding): remove 'encoding' from API [Ryan Phillips]
+ * fix(url): url parse fixes [Gabriel Avellaneda]
+
+* Changes between 2.0.5 and 2.0.6
+
+ * fix(net): set uv.close callback. [Ryan Phillips]
+ * fix(childprocess): propagate errors through the pipes. [Ryan Phillips]
+ * fix(childprocess): close handle on a process kill. [Ryan Phillips]
+ * tls(x509): use the singleton default x509 store. [Ryan Phillips]
+ * Added the Emitter:propagate method to allow event propagation. [Gabriel Nicolas Avellaneda]
+ * Modified url.parse to add auth parsing. [Gabriel Nicolas Avellaneda]
+ * Fix no-color mode [Tim Caswell]
+ * Merge pretty-print into a single file. [Tim Caswell]
+ * Update lit to 1.1.2 and luvi to v2.0.1. [Tim Caswell]
+
+* Changes between 2.0.4 and 2.0.5
+
+ * Fix `connect` alias in net module. [Tim Caswell]
+
+* Changes between 2.0.3 and 2.0.4
+
+ * Bump lit to 1.0.3
+ * Add cwd option to spawn [Alfred Tascon]
+ * Fix handle nil error [gsick]
+ * http fixes [Rob Emanuele]
+ * Add libcurl sample [Ryan Phillips]
+
+* Changes between 2.0.2 and 2.0.3
+
+ * set the highwaterMark to 0 on the stdin stream [Ryan Phillips]
+ * schedule emitter exit for nextTick [Ryan Phillips]
+
+* Changes between 2.0.1 and 2.0.2
+
+ * childprocess: Fix exit event. [Ryan Phillips]
+ * process: If stdin is paused then stop reading. [Ryan Phillips]
+ * tls: Pass true to clear the mode. [Ryan Phillips]
+ * lit: Bump default lit version to 1.0.2. [Tim Caswell]
+
+* Changes between 2.0.0 and 2.0.1
+
+ * Fix issue where a TLS stream would sometimes not emit data [Tim Caswell]
+ * Add missing SSL cert for thawte Premium Server [Ryan Phillips]
+ * Flush HTTP stream with _end() [Ryan Phillips]
+ * Fix "socket" and "response" events in HTTP [Tim Caswell]
+
+* 2.0.0 Major Release
+
+This is a rewrite of nearly the entire luvit stack from the ground up.
+
+  * New libuv bindings in the luvit/luv project binding to libuv 1.x
+	* New core runtime in luvit/luvi that integrates all C code and embeds
+	bundled zip assets.
+	* New package manager and general workflow tool in luvit/lit
+	* Luvit 2.0 is now a luvi app published to luvit/luvit in ws://lit.luvit.io
+	* Luvit is also a set of libraries you can include in your own luvi app to
+	get the same userspace as luvit, but with a custom main.
+
+* Changes between 0.8.2 to 0.10.0
+
+	Updates
+
+    * Upgrade OpenSSL to 1.0.1i
+
+* Changes between 0.8.1 to 0.8.2
+
+  Bugfixes
+
+    * Fix an issue with an infinite loop in utils.dump (Ryan Phillips)
+
+* Changes between 0.8.0 to 0.8.1
+
+  Bugfixes
+
+    * File descriptor leak on SyncWriteStream (Ryan Phillips)
+      * Emit error on double write
+    * Improve loading of Root CA Certs (Ryan Phillips)
+    * Pathing fixes for windows (Rob Emanuele)
+
+* Changes between 0.7.0 to 0.8.0
+
+  Api Changes
+
+    * ListenerCount on EventEmitter (Song Gao)
+
+  New features
+
+    * libuv poll binding (Ryan Phillips)
+
+  Bugfixes
+
+    * errors table misplaced (gsick)
+    * Freebsd Tweaks (Ryan Phillips)
+    * Whitespace cleanup (Tim Caswell)
+    * NPM Support (Wouter Scherphof)
+    * Documentation tweak for core module (Rafis Ganeyev)
+    * Global leaks + DNS Callback (Ryan Phillips)
+    * MSVC Linker tweak to not strip LuaJIT symbols (Andread Lange)
+    * poor use of path join in the zlib test (Rob Emanuele)
+    * uv_print_*_handles (Andread Lange)
+    * Absolute Paths (Tomaz Muraus)
+    * Response Object Error Propagation (Tomaz Muraus)
+    * Posix Signal Handling (Ryan Phillips)
+    * Build fixes for ARM (Tomaz Muraus)
+
+    Updates
+
+    * LuaJIT bump to 2.0.3
+    * LibUV bump to 0.10.27
+    * OpenSSL Bump to 1.0.1h
+
+* Changes between 0.6.0 to 0.7.0
+
+  API Changes
+
+  * Process.hrtime (Felix Gallo)
+
+  New features
+
+  * Detached Processes (Ryan Phillips)
+  * Windows: 64bit support (Rob Emanuele)
+
+  Bugfixes
+
+  * Windows: Mixed path separators (norefle)
+  * Implement optional extension removal in path.basename (Chris Hoffman)
+  * Fix missing handle increment on watcher creation (Chris Hoffman)
+  * Warning fix (Chris Hoffman)
+  * Long filenames on Windows (Rob Emanuele)
+  * Windows cleanup (Rob Emanuele)
+  * make bundle works on OSX machines (Alfred Tascon)
+  * instanceof fix (andi)
+  * make yajl build honor CFLAGS (Vladimir Dronnikov)
+
+  Updates
+
+  * Luajit 2.0.2 (Tim Caswell and Rob Emanuele)
+  * Libuv v0.10.13 (Rob Emanuele)
+  * Cares Library (Rob Emanuele)
+  * Gyp upgrade (Rob Emanuele)
+  * New signal handling changes (Ryan Phillips)
+
+* Changes between 0.5.0 to 0.6.0
+
+  API Changes
+
+  * Streams now act like node's in all known cases
+    the "closed" event is now gone (Brandon Philips)
+  * nil timers are now accepted (AJ ONeal)
+
+  New features
+
+  * UDP support (Ryan Phillips)
+  * Tons of tests! (Hiroaki Nakamura)
+  * Object.instanceof (Hiroaki Nakamura)
+  * Add get/set UID/GID function on POSIX (andrey)
+  * add getProcessTitle/setProcessTitle (Tim Caswell)
+  * Using luajit 2.0.0 final
+  * Using libuv nodev0.8.16 (Brandon Philips/Tim Caswell)
+  * Add uninstall to Makefile (Matt Sullivan)
+  * Gyp build has install target (Hiroaki Nakamura)
+
+  Bugfixes
+
+  * Improved Makefile options (hasufell)
+  * Fix a close() call on a wrong Timer object (Tomaz Muraus) #376, #377
+  * Fixup Windows process spawning (Bert Belder)
+  * tls pull fixes (Brandon Philips)
+  * Normalize CRLF/LF for Windows (Rob Emanuele)
+  * Fix long paths for Windows (Rob Emanuele)
+  * Fix test-ffi.lua to work on Windows (Rob Emanuele)
+  * Fix Socket destroyed flag (Brandon Philips)
+  * Fix Socket pipe implementation (Brandon Philips)
+  * Fix pipe implementation in general (Brandon Philips)
+  * Fix stream reading crash on exception (Matt Kaniaris)
+  * Compiler warning fixes (Brandon Philips)
+  * Fix up S_IS* macros on Windows (Brad Morgan)
+  * Fix Object:extend (Matt Kaniaris)
+  * Fix fverify leaking errors in lcrypto (Brandon Philips)
+  * Free req when TCP connect fails (Ryan Phillips)
+  * Fix test runner (Matt Kaniaris)
+  * Fix SyncWriteStream and _G.len (Kengo Nakajima)
+  * luv_close fixes (Ryan Phillips)
+  * make clean now cleans up zlib/lcrypto (Brandon Philips)
+  * Fixes to the windows build (Ryan Phillips)
+  * Fixup stdin/stdout/stderr logic (Brandon Philips/Ryan Phillips)
+  * Fix listeners on http missing events (Brandon Philips)
+  * Don't call pauseNoRef on lua stream like objects (Tomaz Muraus)
+  * Fix util.bind memory leak and to preserve nil (Tim Caswell)
+  * Fix double close on Handle/Timers (Brandon Philips)
+  * Close stdin only if already closed (Paul Querna)
+  * Hold coroutine when handler created in coroutine (Andrew Tsao)
+
+* Changes between 0.4.0 to 0.5.0
+
+  API Changes
+
+  * http module has been largely refactored/rewritten to be node-like.
+
+  New Features
+
+  * New http module - posts, chunking, and headers now work (Ryan Phillips)
+  * New https module - leverages the new http submodule (Ryan Phillips)
+  * Improved fiber module (Tim Caswell)
+
+* Changes between 0.3.1 to 0.4.0
+
+  API Changes
+
+  * dns.isIPv* has been renamed and moved to net.*
+
+  New Features
+
+  * Memory usage improvements (Ryan Phillips, Paul Querna, Brandon Philips, Tim Caswell)
+  * Callback State infrastructure (Brandon Philips)
+  * TLS Ticketing (Michael Kandrashoff)
+  * Reference counting (Tim Caswell)
+  * Improve timers (Ryan Phillips)
+  * Add os.clock (Tadeusz Wojcik)
+  * process.pid (Michael Kandrashoff)
+
+  Upgrade
+
+  * zlib (Paul Querna)
+  * OpenSSL  w/ Skinny Option (Paul Querna)
+
+  Bug Fixes
+
+  * C89 Improvements (Antal Szabó)
+  * Assertion fixes (Antal Szabó)
+  * url.parse parseQueryString (Tomaz Muraus)
+  * process.spawn environment passing on windows (Ryan Phillips)
+  * Solaris build fixes (Ben Noordhuis)
+  * DNS IPv6 resolving (Ryan Phillips)
+  * TCP Connect IPv6 (Ryan Phillips)
+  * TLS Fixes (Brandon Philips)
+  * TLS Tests (Brandon Philips)
+  * Various Windows fixes (Brandon Philips, Ryan Phillips)
+  * luv_zlib uninitialized variable (Paul Querna)
+  * Use gyp submodule (Brandon Philips)
+
+* Changes between 0.3.0 to 0.3.1
+
+  Bug Fixes
+
+  * Fix socket double 'error' emit
+  * Fix clearTimer
+
+* Changes between 0.2.0 to 0.3.0
+
+  API Changes
+
+  * Stream objects now call destroy() instead of close()
+
+  New Features
+
+  * TLS/SSL Support (Ryan Phillips)
+  * Crypto Support (Brandon Philips)
+  * Zlib Binding (Vladimir Dronnikov)
+  * Chaining Emitters (Vladimir Dronnikov)
+  * Socket Timeout (Ryan Phillips)
+  * Socket Drain (Ryan Phillips)
+  * OS Path Module (Brandon Philips)
+  * Suppress color output (-n switch) (radare)
+  * Listen() now supports backlog size (Vladimir Dronnikov)
+  * obj:removeListener(name, nil) will remove all listeners (Vladimir Dronnikov)
+  * Buffer writes before a connect (Ryan Phillips)
+  * Debug Interface (Ryan Phillips)
+  * Add process.nextTick() (Brandon Philips)
+
+  Bug Fixes
+
+  * Timer (Ryan Phillips)
+  * Module loading with relative paths (Brandon Philips)
+  * Chunking HTTP Fixes (Vladimir Dronnikov)
+  * HTTP Parser Fixes (Paul Querna)
+  * Keep Alive EPIPE Fix (Vladimir Dronnikov)
+  * Windows Fixes (Brandon Philips)
+  * Socket error handling (Brandon Philips)

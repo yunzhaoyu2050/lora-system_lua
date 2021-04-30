@@ -49,6 +49,71 @@ function DeviceConfig.Read(devAddr)
   return DeviceConfig.hashTable[devAddr]
 end
 
+function GetItemHandle(kVal, table)
+  return utiles.switch(kVal) {
+    ["DevAddr"] = function()
+      return table.DevAddr
+    end,
+    ["frequencyPlan"] = function()
+      return table.frequencyPlan
+    end,
+    ["ADR"] = function()
+      return table.ADR
+    end,
+    ["ADR_ACK_LIMIT"] = function()
+      return table.ADR_ACK_LIMIT
+    end,
+    ["ADR_ACK_DELAY"] = function()
+      return table.ADR_ACK_DELAY
+    end,
+    ["ChMask"] = function()
+      return table.ChMask
+    end,
+    ["CFList"] = function()
+      return table.CFList
+    end,
+    ["ChDrRange"] = function()
+      return table.ChDrRange
+    end,
+    ["RX1CFList"] = function()
+      return table.RX1CFList
+    end,
+    ["RX1DRoffset"] = function()
+      return table.RX1DRoffset
+    end,
+    ["RX1Delay"] = function()
+      return table.RX1Delay
+    end,
+    ["RX2Freq"] = function()
+      return table.RX2Freq
+    end,
+    ["RX2DataRate"] = function()
+      return table.RX2DataRate
+    end,
+    ["NbTrans"] = function()
+      return table.NbTrans
+    end,
+    ["MaxDCycle"] = function()
+      return table.MaxDCycle
+    end,
+    ["MaxEIRP"] = function()
+      return table.MaxEIRP
+    end,
+    [utiles.Nil] = function()
+      return 0
+    end,
+    [utiles.Default] = function()
+      return 0
+    end
+  }
+end
+
+function GetInputVal(index)
+  for k, v in pairs(index) do
+    return k, v -- 按照输入逻辑只为一个成员
+  end
+end
+
 -- 读取指定成员的值并返回
 -- @param devaddr
 -- @param item 指定成员集 {'DevEUI', 'DevAddr'}
@@ -58,55 +123,80 @@ function DeviceConfig.readItem(devaddr, item)
     p("devaddr is nil")
     return -1
   end
+  if item == nil then
+    item = {
+      "DevAddr",
+      "frequencyPlan",
+      "ADR",
+      "ADR_ACK_LIMIT",
+      "ADR_ACK_DELAY",
+      "ChMask",
+      "CFList",
+      "ChDrRange",
+      "RX1CFList",
+      "RX1DRoffset",
+      "RX1Delay",
+      "RX2Freq",
+      "RX2DataRate",
+      "NbTrans",
+      "MaxDCycle",
+      "MaxEIRP"
+    }
+  end
   local tmp = {}
-  for i = 1, #item do
-    if item[i] == "DevAddr" then
-      tmp.DevAddr = DeviceConfig.hashTable[devaddr].DevAddr
-    end
-    if item[i] == "frequencyPlan" then
-      tmp.frequencyPlan = DeviceConfig.hashTable[devaddr].frequencyPlan
-    end
-    if item[i] == "ADR" then
-      tmp.ADR = DeviceConfig.hashTable[devaddr].ADR
-    end
-    if item[i] == "ADR_ACK_LIMIT" then
-      tmp.ADR_ACK_LIMIT = DeviceConfig.hashTable[devaddr].ADR_ACK_LIMIT
-    end
-    if item[i] == "ADR_ACK_DELAY" then
-      tmp.ADR_ACK_DELAY = DeviceConfig.hashTable[devaddr].ADR_ACK_DELAY
-    end
-    if item[i] == "ChMask" then
-      tmp.ChMask = DeviceConfig.hashTable[devaddr].ChMask
-    end
-    if item[i] == "CFList" then
-      tmp.CFList = DeviceConfig.hashTable[devaddr].CFList
-    end
-    if item[i] == "ChDrRange" then
-      tmp.ChDrRange = DeviceConfig.hashTable[devaddr].ChDrRange
-    end
-    if item[i] == "RX1CFList" then
-      tmp.RX1CFList = DeviceConfig.hashTable[devaddr].RX1CFList
-    end
-    if item[i] == "RX1DRoffset" then
-      tmp.RX1DRoffset = DeviceConfig.hashTable[devaddr].RX1DRoffset
-    end
-    if item[i] == "RX1Delay" then
-      tmp.RX1Delay = DeviceConfig.hashTable[devaddr].RX1Delay
-    end
-    if item[i] == "RX2Freq" then
-      tmp.RX2Freq = DeviceConfig.hashTable[devaddr].RX2Freq
-    end
-    if item[i] == "RX2DataRate" then
-      tmp.RX2DataRate = DeviceConfig.hashTable[devaddr].RX2DataRate
-    end
-    if item[i] == "NbTrans" then
-      tmp.NbTrans = DeviceConfig.hashTable[devaddr].NbTrans
-    end
-    if item[i] == "MaxDCycle" then
-      tmp.MaxDCycle = DeviceConfig.hashTable[devaddr].MaxDCycle
-    end
-    if item[i] == "MaxEIRP" then
-      tmp.MaxEIRP = DeviceConfig.hashTable[devaddr].MaxEIRP
+  local inK, inV = GetInputVal(devaddr)
+  for k, v in pairs(DeviceConfig.hashTable) do
+    if GetItemHandle(inK, DeviceConfig.hashTable[k]) == inV then
+      for i = 1, #item do
+        if item[i] == "DevAddr" then
+          tmp.DevAddr = DeviceConfig.hashTable[k].DevAddr
+        end
+        if item[i] == "frequencyPlan" then
+          tmp.frequencyPlan = DeviceConfig.hashTable[k].frequencyPlan
+        end
+        if item[i] == "ADR" then
+          tmp.ADR = DeviceConfig.hashTable[k].ADR
+        end
+        if item[i] == "ADR_ACK_LIMIT" then
+          tmp.ADR_ACK_LIMIT = DeviceConfig.hashTable[k].ADR_ACK_LIMIT
+        end
+        if item[i] == "ADR_ACK_DELAY" then
+          tmp.ADR_ACK_DELAY = DeviceConfig.hashTable[k].ADR_ACK_DELAY
+        end
+        if item[i] == "ChMask" then
+          tmp.ChMask = DeviceConfig.hashTable[k].ChMask
+        end
+        if item[i] == "CFList" then
+          tmp.CFList = DeviceConfig.hashTable[k].CFList
+        end
+        if item[i] == "ChDrRange" then
+          tmp.ChDrRange = DeviceConfig.hashTable[k].ChDrRange
+        end
+        if item[i] == "RX1CFList" then
+          tmp.RX1CFList = DeviceConfig.hashTable[k].RX1CFList
+        end
+        if item[i] == "RX1DRoffset" then
+          tmp.RX1DRoffset = DeviceConfig.hashTable[k].RX1DRoffset
+        end
+        if item[i] == "RX1Delay" then
+          tmp.RX1Delay = DeviceConfig.hashTable[k].RX1Delay
+        end
+        if item[i] == "RX2Freq" then
+          tmp.RX2Freq = DeviceConfig.hashTable[k].RX2Freq
+        end
+        if item[i] == "RX2DataRate" then
+          tmp.RX2DataRate = DeviceConfig.hashTable[k].RX2DataRate
+        end
+        if item[i] == "NbTrans" then
+          tmp.NbTrans = DeviceConfig.hashTable[k].NbTrans
+        end
+        if item[i] == "MaxDCycle" then
+          tmp.MaxDCycle = DeviceConfig.hashTable[k].MaxDCycle
+        end
+        if item[i] == "MaxEIRP" then
+          tmp.MaxEIRP = DeviceConfig.hashTable[k].MaxEIRP
+        end
+      end
     end
   end
   return tmp
@@ -172,71 +262,6 @@ function DeviceConfig.Update(devAddr, info)
   end
   p("error :update DeviceConfig is nil, devAddr:" .. devAddr)
   return -2
-end
-
-local function GetItemHandle(kVal, table)
-  return utiles.switch(kVal) {
-    ["DevAddr"] = function()
-      return info.DevAddr
-    end,
-    ["frequencyPlan"] = function()
-      return info.frequencyPlan
-    end,
-    ["ADR"] = function()
-      return info.ADR
-    end,
-    ["ADR_ACK_LIMIT"] = function()
-      return info.ADR_ACK_LIMIT
-    end,
-    ["ADR_ACK_DELAY"] = function()
-      return info.ADR_ACK_DELAY
-    end,
-    ["ChMask"] = function()
-      return info.ChMask
-    end,
-    ["CFList"] = function()
-      return info.CFList
-    end,
-    ["ChDrRange"] = function()
-      return info.ChDrRange
-    end,
-    ["RX1CFList"] = function()
-      return info.RX1CFList
-    end,
-    ["RX1DRoffset"] = function()
-      return info.RX1DRoffset
-    end,
-    ["RX1Delay"] = function()
-      return info.RX1Delay
-    end,
-    ["RX2Freq"] = function()
-      return info.RX2Freq
-    end,
-    ["RX2DataRate"] = function()
-      return info.RX2DataRate
-    end,
-    ["NbTrans"] = function()
-      return info.NbTrans
-    end,
-    ["MaxDCycle"] = function()
-      return info.MaxDCycle
-    end,
-    ["MaxEIRP"] = function()
-      return info.MaxEIRP
-    end,
-    [utiles.Nil] = function()
-      return 0
-    end,
-    [utiles.Default] = function()
-      return 0
-    end
-  }
-end
-
-local function GetInputVal(index)
-  for k, v in pairs(index) do
-    return k, v -- 按照输入逻辑只为一个成员
-  end
 end
 
 -- 指定成员更新
@@ -309,8 +334,14 @@ function DeviceConfig.UpdateItem(appoint, item)
           end
         }
       end
+      break
+    else
+      -- 不存在该条目需要将其新添加进去
+      DeviceConfig.Write(inV, item)
+      break
     end
   end
+  return 0
 end
 
 -- 同步数据

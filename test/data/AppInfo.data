@@ -1,12 +1,1 @@
-{
-  "37aa4f9030fda82a": {
-    "AppEUI": "37aa4f9030fda82a",
-    "name": "loraWan",
-    "userID": "zhaoyu"
-  },
-  "2f0f6asd5264d847": {
-    "AppEUI": "2f0f6asd5264d847",
-    "name": "dogLine",
-    "userID": "zhangsan"
-  }
-}
+{"37aa4f9030fda82a":{"AppEUI":"37aa4f9030fda82a","name":"loraWan","userID":"zhaoyu"},"2f0f6asd5264d847":{"AppEUI":"2f0f6asd5264d847","name":"dogLine","userID":"zhangsan"}}

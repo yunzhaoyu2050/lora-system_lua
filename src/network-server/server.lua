@@ -6,7 +6,6 @@ function _process(recvData)
   else
     -- uv.sleep(math.random(1000))
   end
-  -- end
 end
 return {
   Process = _process
