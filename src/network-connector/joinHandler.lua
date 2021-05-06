@@ -4,13 +4,13 @@ local buffer = require("buffer").Buffer
 local utiles = require("../../utiles/utiles.lua")
 local aesCmac = require("../../deps/node-aes-cmac-lua/lib/aes-cmac.lua").aesCmac
 
--- join打包数据
+-- phy层打包数据
 function packager(phyPayloadJSON, key)
   phyPayloadJSON.MHDR = MHDRPackager(phyPayloadJSON.MHDR)
   local MACPayloadJSON = phyPayloadJSON.MACPayload
   local MIC = joinMICCalculator(phyPayloadJSON, key, "accept")
   local macpayload =
-    Buffer.concat(
+    buffer.concat(
     {
       utiles.reverse(MACPayloadJSON.AppNonce),
       utiles.reverse(MACPayloadJSON.NetID),
@@ -20,16 +20,16 @@ function packager(phyPayloadJSON, key)
     }
   )
   if MACPayloadJSON.CFList ~= nil then
-    macpayload = Buffer.concat({macpayload, MACPayloadJSON.CFList})
+    macpayload = buffer.concat({macpayload, MACPayloadJSON.CFList})
   end
-  macpayload = Buffer.concat({macpayload, MIC})
-  local encmacpayload = this.AcptEncryption(macpayload, key)
-  local phypayload = Buffer.concat({phyPayloadJSON.MHDR, encmacpayload})
+  macpayload = buffer.concat({macpayload, MIC})
+  local encmacpayload = AcptEncryption(macpayload, key)
+  local phypayload = buffer.concat({phyPayloadJSON.MHDR, encmacpayload})
   return phypayload
 end
 
 function MHDRPackager(mhdr)
-  local MHDR = Buffer:new(consts.MHDR_LEN)
+  local MHDR = buffer:new(consts.MHDR_LEN)
   utiles.bitwiseAssigner(MHDR, consts.MTYPE_OFFSET, consts.MTYPE_LEN, mhdr.MType)
   utiles.bitwiseAssigner(MHDR, consts.MAJOR_OFFSET, consts.MAJOR_LEN, mhdr.Major)
   return MHDR
@@ -45,7 +45,7 @@ end
 -- @info Join-Request 消息解析
 
 -- join-request消息计算
-local function joinMICCalculator(requiredFields, key, typeInput)
+function joinMICCalculator(requiredFields, key, typeInput)
   local micPayload
   local bufferArray
   if typeInput == "request" then
@@ -69,22 +69,38 @@ local function joinMICCalculator(requiredFields, key, typeInput)
       consts.DEVNONCE_LEN
     )
   elseif typeInput == "accept" then
-    bufferArray = {
-      -- TODO: 修改
-      requiredFields.MHDR,
-      utiles.reverse(requiredFields.MACPayload.AppNonce),
-      utiles.reverse(requiredFields.MACPayload.NetID),
-      utiles.reverse(requiredFields.MACPayload.DevAddr),
-      utiles.reverse(requiredFields.MACPayload.DLSettings),
-      utiles.reverse(requiredFields.MACPayload.RxDelay)
-    }
-    micPayload = buffer:new(bufferArray) -- Buffer.concat(bufferArray, consts.BLOCK_LEN_ACPT_MIC_BASE);
-  --   if (requiredFields.MACPayload.hasOwnProperty('CFList')) {
-  --     micPayload = Buffer.concat([
-  --       micPayload,
-  --       reverse(requiredFields.MACPayload.CFList)
-  --     ], consts.BLOCK_LEN_ACPT_MIC_BASE + requiredFields.CFList.length);
-  --   }
+    -- 终端所加入的网络的可选信道频率列
+    -- 表(CFList)。 CFList 的选择是由区域指定的， 在 LoRaWAN 地区参数文件[PARAMS]中进行
+    -- 定义。
+    -- consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + consts.DEVADDR_LEN + consts.DLSETTINGS_LEN + consts.RXDELAY_LEN -- consts.BLOCK_LEN_ACPT_MIC_BASE
+    micPayload = buffer:new(consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + consts.DEVADDR_LEN + consts.DLSETTINGS_LEN + consts.RXDELAY_LEN) -- Buffer.concat(bufferArray, consts.BLOCK_LEN_ACPT_MIC_BASE);
+    utiles.BufferFill(micPayload, 0, 1, micPayload.length)
+    micPayload:writeUInt8(1, requiredFields.MHDR)
+    utiles.BufferWrite(micPayload, consts.MHDR_LEN + 1, utiles.reverse(requiredFields.AppNonce), consts.APPNONCE_LEN)
+    utiles.BufferWrite(
+      micPayload,
+      consts.MHDR_LEN + consts.APPNONCE_LEN + 1,
+      utiles.reverse(requiredFields.NetID),
+      consts.NETID_LEN
+    )
+    utiles.BufferWrite(
+      micPayload,
+      consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + 1,
+      utiles.reverse(requiredFields.DevAddr),
+      consts.DEVADDR_LEN
+    )
+    utiles.BufferWrite(
+      micPayload,
+      consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + consts.DEVADDR_LEN + 1,
+      utiles.reverse(requiredFields.DLSettings),
+      consts.DLSETTINGS_LEN
+    )
+    utiles.BufferWrite(
+      micPayload,
+      consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + consts.DEVADDR_LEN + consts.DLSETTINGS_LEN + 1,
+      utiles.reverse(requiredFields.RxDelay),
+      consts.RXDELAY_LEN
+    )
   end
   local keyLen = 0
   if type(key) == "string" then
@@ -179,5 +195,6 @@ function parser(phyPayloadJSON)
 end
 
 return {
-  parser = parser
+  parser = parser,
+  packager = packager
 }

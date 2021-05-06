@@ -6,8 +6,14 @@ local timer = require("timer")
 
 local AppInfo = {
   timer = timer,
-  hashTable = {} -- 以AppEUI为键值 存储着各个app的配置
+  hashTable = {}
 }
+
+-- 1、AppInfo.lua,	key:AppEUI,		file:AppInfo.data
+--     memory:
+-- 	"AppEUI",
+-- 	"userID",
+-- 	"name"
 
 function AppInfo.Write(appEui, info)
   if appEui == nil then

@@ -12,16 +12,17 @@ local function txAckParser(txAckData)
   return txAckJSON
 end
 
--- udpLayer解析数据
+-- udpLayer粗解析数据
 -- @param data udp接收到的数据 string格式
+-- @return nil: 粗解析失败, other: 解析成功
 function parser(data)
   if data == nil then
     p("data is nil.")
-    return -1
+    return nil
   end
   if #data < consts.UDP_DATA_BASIC_LENGTH then
     p("Invalid length of udp data, greater than ${consts.UDP_DATA_BASIC_LENGTH - 1} bytes is mandatory")
-    return -1
+    return nil
   end
   local recvData = buffer:new(data)
   local udpJSON = {
@@ -31,13 +32,13 @@ function parser(data)
   }
   if consts.UDP_VERSION_LIST[udpJSON.version] == nil then
     p("Bad UDP version number!")
-    return -1
+    return nil
   end
   local identifier = udpJSON.identifier
   if identifier == consts.UDP_ID_PUSH_DATA then
     if #data <= consts.PUSH_DATA_BASIC_LENGTH then
       p("Invalid length of push data, greater than ${consts.PUSH_DATA_BASIC_LENGTH} bytes is mandatory")
-      return -1
+      return nil
     end
     udpJSON.gatewayId = utiles.BufferToHexString(recvData, consts.UDP_GW_ID_OFFSET + 1, consts.UDP_JSON_OBJ_OFFSET)
     udpJSON.pushData = recvData:toString(consts.UDP_JSON_OBJ_OFFSET + 1)
@@ -45,7 +46,7 @@ function parser(data)
   elseif identifier == consts.UDP_ID_PULL_DATA then
     if #data ~= consts.PULL_DATA_LENGTH then
       p("Invalid length of pull data, ${consts.PULL_DATA_LENGTH} bytes is mandatory")
-      return -1
+      return nil
     end
     udpJSON.gatewayId = recvData:readUInt32BE(consts.UDP_GW_ID_OFFSET + 1)
     udpJSON.DataType = "PULL_DATA"
@@ -55,7 +56,7 @@ function parser(data)
     udpJSON.DataType = "TX_ACK"
   else
     p("Invalid identifier, any of [0x00, 0x02, 0x05] is required")
-    return -1
+    return nil
   end
   return udpJSON
 end
@@ -63,7 +64,7 @@ end
 -- 下行处理打包数据
 local function packager(requiredFields)
   if requiredFields == nil then
-    p("requiredFields is nil")
+    p("function <packager>, requiredFields param is nil")
     return nil
   end
   -- TODO-Schema validation
@@ -106,9 +107,10 @@ end
 
 -- ACK应答
 -- @param incomingJSON gateway -> server传过来粗解析后的数据
+-- @return ACK错误：nil, ACK成功：非nil
 function ACK(incomingJSON)
   if incomingJSON == nil then
-    p("incomingJSON is nil")
+    p("function <ACK>, incomingJSON param is nil")
     return nil
   end
   local identifierTemp = {
@@ -158,11 +160,10 @@ function pushDataParser(udpPushJSON)
   --   }
   p(pushDataJSON)
   if pushDataJSON["rxpk"] ~= nil then -- 上行数据
-    -- rxpkPromise = element
     -- pushDataJSON.rxpk.可能为一个数组包含多组rxpk
     rxpkPromise = {}
     local element
-    for k, v in pairs(pushDataJSON.rxpk) do
+    for k, _ in pairs(pushDataJSON.rxpk) do
       local data = phyParser.parser(pushDataJSON.rxpk[k].data)
       element = pushDataJSON.rxpk[k]
       if data ~= nil then

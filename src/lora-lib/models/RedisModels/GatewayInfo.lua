@@ -23,13 +23,13 @@ local function SynchronousMysqlData()
       end
     end
   end
-  p("Synchronous Mysql Data end")
+  p("redis <GatewayInfo>, synchronous mysql data end")
+  return 0
 end
 
 function GatewayInfo.Init()
   GatewayInfo.hashTable = {}
-  -- mysql中的对应值写入redis中
-  SynchronousMysqlData()
+  return SynchronousMysqlData() -- mysql中的对应值写入redis中
 end
 
 function GatewayInfo.Read(gatewayId)
@@ -82,7 +82,7 @@ end
 
 -- 读取userID
 -- @param gatewayId
--- @return 指定gatewayId的userID值
+-- @return 成功：指定gatewayId的userID值, 失败：nil
 function GatewayInfo.GetuserID(gatewayId)
   if GatewayInfo.hashTable[gatewayId] == nil then
     p("gatewayId does not exist, please register.")
@@ -93,10 +93,10 @@ end
 
 -- 更新userID
 -- @param gatewayId , data 要更新的数据
--- @return -1 入参错误 0 成功
+-- @return 入参错误：-1, 成功：0， 其他错误：<0
 function GatewayInfo.UpdateuserID(gatewayId, data)
   if gatewayId == nil or data == nil then
-    p("gatewayId is nil or data is nil")
+    p("function <GatewayInfo.UpdateuserID>, input param is nil")
     return -1
   end
   if GatewayInfo.hashTable[gatewayId] == nil then
@@ -109,10 +109,10 @@ end
 
 -- 更新address
 -- @param gatewayConfig 要更新的数据
--- @return -1 入参错误 0 成功
+-- @return 入参错误：-1, 成功：0， 其他错误：<0
 function GatewayInfo.updateGatewayAddress(gatewayConfig)
   if gatewayConfig == nil then
-    p("gatewayConfig is nil")
+    p("function <GatewayInfo.updateGatewayAddress>, gatewayConfig param is nil")
     return -1
   end
   if GatewayInfo.hashTable[gatewayConfig.gatewayId] == nil then

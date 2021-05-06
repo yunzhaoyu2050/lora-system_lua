@@ -1,1 +1,15 @@
-{"00":{"tmst":"","DevAddr":"","imme":"","rfch":"","ipol":"","powe":"","gatewayId":"","datr":"","freq":"","modu":"","codr":""}}
+{
+  "00": {
+    "tmst": "",
+    "DevAddr": "",
+    "imme": false,
+    "rfch": "",
+    "ipol": false,
+    "powe": "",
+    "gatewayId": "",
+    "datr": "",
+    "freq": "",
+    "modu": "",
+    "codr": ""
+  }
+}

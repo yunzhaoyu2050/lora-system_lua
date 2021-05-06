@@ -1,1 +1,20 @@
-{"0004f2fffe31b2bb":{"RFChain":0,"userID":"zhaoyu","frequencyPlan":"China+470-510MHz","location":"E106,N85","model":"X02","type":"outdoor","gatewayId":"0004f2fffe31b2bb"},"0004f2bffe31f6b4":{"RFChain":0,"userID":"zhaoyu","frequencyPlan":"China+470-510MHz","location":"E174,N110","model":"X02","type":"outdoor","gatewayId":"0004f2bffe31f6b4"}}
+{
+  "0004f2fffe31b2bb": {
+    "RFChain": 0,
+    "userID": "zhaoyu",
+    "frequencyPlan": "China+470-510MHz",
+    "location": "E106,N85",
+    "model": "X02",
+    "type": "outdoor",
+    "gatewayId": "0004f2fffe31b2bb"
+  },
+  "0004f2bffe31f6b4": {
+    "RFChain": 0,
+    "userID": "zhaoyu",
+    "frequencyPlan": "China+470-510MHz",
+    "location": "E174,N110",
+    "model": "X02",
+    "type": "outdoor",
+    "gatewayId": "0004f2bffe31f6b4"
+  }
+}

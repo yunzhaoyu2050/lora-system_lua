@@ -7,8 +7,27 @@ local utiles = require("../../../../utiles/utiles.lua")
 
 local DeviceConfig = {
   timer = timer,
-  hashTable = {} -- 以AppEUI为键值 存储着各个app的配置
+  hashTable = {}
 }
+
+-- 2、DeviceConfig.lua,		key: DevAddr,		file:DeviceConfig.data
+--     memory:
+--       	"DevAddr",
+--       	"frequencyPlan",
+--       	"ADR",
+--       	"ADR_ACK_LIMIT",
+--       	"ADR_ACK_DELAY",
+--       	"ChMask",
+--       	"CFList",
+--       	"ChDrRange",
+--       	"RX1CFList",
+--       	"RX1DRoffset",
+--       	"RX1Delay",
+--       	"RX2Freq",
+--       	"RX2DataRate",
+--       	"NbTrans",
+--       	"MaxDCycle",
+--       	"MaxEIRP"
 
 function DeviceConfig.Write(devAddr, info)
   if devAddr == nil then
@@ -49,7 +68,7 @@ function DeviceConfig.Read(devAddr)
   return DeviceConfig.hashTable[devAddr]
 end
 
-function GetItemHandle(kVal, table)
+local function GetItemHandle(kVal, table)
   return utiles.switch(kVal) {
     ["DevAddr"] = function()
       return table.DevAddr
@@ -108,7 +127,7 @@ function GetItemHandle(kVal, table)
   }
 end
 
-function GetInputVal(index)
+local function GetInputVal(index)
   for k, v in pairs(index) do
     return k, v -- 按照输入逻辑只为一个成员
   end
@@ -233,37 +252,6 @@ function DeviceConfig.Update(devAddr, info)
   return -2
 end
 
-function DeviceConfig.Update(devAddr, info)
-  if devAddr == nil then
-    p("devAddr is nil")
-    return -1
-  end
-  if DeviceConfig.hashTable[devAddr] ~= nil then
-    DeviceConfig.hashTable[devAddr] = {
-      DevAddr = info.DevAddr,
-      frequencyPlan = info.frequencyPlan,
-      ADR = info.ADR,
-      ADR_ACK_LIMIT = info.ADR_ACK_LIMIT,
-      ADR_ACK_DELAY = info.ADR_ACK_DELAY,
-      ChMask = info.ChMask,
-      CFList = info.CFList,
-      ChDrRange = info.ChDrRange,
-      RX1CFList = info.RX1CFList,
-      RX1DRoffset = info.RX1DRoffset,
-      RX1Delay = info.RX1Delay,
-      RX2Freq = info.RX2Freq,
-      RX2DataRate = info.RX2DataRate,
-      NbTrans = info.NbTrans,
-      MaxDCycle = info.MaxDCycle,
-      MaxEIRP = info.MaxEIRP
-    }
-    p("update DeviceConfig, devAddr:" .. devAddr)
-    return 0
-  end
-  p("error :update DeviceConfig is nil, devAddr:" .. devAddr)
-  return -2
-end
-
 -- 指定成员更新
 -- @param devAddr {DevEUI=DevEUI}
 -- @param info {AppEUI=AppEUI,FCntUp=FCntUp}
@@ -274,7 +262,7 @@ function DeviceConfig.UpdateItem(appoint, item)
     return -1
   end
   local inK, inV = GetInputVal(appoint)
-  for k, v in pairs(DeviceConfig.hashTable) do
+  for k, _ in pairs(DeviceConfig.hashTable) do
     if GetItemHandle(inK, DeviceConfig.hashTable[k]) == inV then
       for i, v in pairs(item) do
         utiles.switch(i) {
@@ -360,7 +348,6 @@ end
 
 function DeviceConfig.Init()
   local deviceConfigPath = serCfgInfo.GetDataPath() .. "/DeviceConfig.data"
-  -- 没有文件则创建一个空文件
   local fd, err = fs.openSync(deviceConfigPath, "r+")
   if err ~= nil then
     -- 没有文件则创建一个空文件

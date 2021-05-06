@@ -12,20 +12,21 @@ function uploadPushData(pushData)
     identifier = pushData.origin.identifier,
     gatewayId = pushData.origin.gatewayId
   }
-  local ret = 0
+  local retStat = 0
+  local retRxpk = {} -- 包含多组数据
   if pushData.stat ~= nil then -- 网关状态数据
     local stat = msgHeader
     stat.stat = pushData.stat
-    serverHandle.Process({type = "ConnectorPubToServer", data = stat}) -- 把状态数据推送至network-server模块
+    retStat = serverHandle.Process({type = "ConnectorPubToServer", data = stat}) -- 把状态数据推送至network-server模块
   end
   if pushData.rxpk ~= nil then -- 业务数据
     for i, v in pairs(pushData.rxpk) do
       local rxpk = msgHeader
       rxpk.rxpk = pushData.rxpk[i]
-      serverHandle.Process({type = "ConnectorPubToServer", data = rxpk}) -- 把业务数据推送至network-server模块
+      retRxpk[i] = serverHandle.Process({type = "ConnectorPubToServer", data = rxpk}) -- 把业务数据推送至network-server模块
     end
   end
-  return ret
+  return retStat, retRxpk
 end
 
 -- 验证网关ID
@@ -39,7 +40,7 @@ function verifyGateway(gatewayId)
   if _GatewayInfoRedis.GetuserID(gatewayId) ~= nil then
     local tmp = _GatewayInfoMySQL.GetuserID(gatewayId)
     if tmp ~= nil then
-      return _GatewayInfoRedis.UpdateuserID(gatewayId, tmp)
+      return _GatewayInfoRedis.UpdateuserID(gatewayId, tmp) -- 更新redis GatewayInfo
     else
       p("The received Gateway is not registered, the whole package is ignored, gatewayId:", gatewayId)
       return -2
@@ -48,15 +49,18 @@ function verifyGateway(gatewayId)
   return -1
 end
 
--- 更新网关地址
--- @param gatewayConfig 配置
+-- 更新redis中网关配置
+-- @param gatewayConfig配置
 function updateGatewayAddress(gatewayConfig)
+  if gatewayConfig == nil then
+    p("function <updateGatewayAddress>, input param is nil")
+    return -1
+  end
   if gatewayConfig.identifier == consts.UDP_ID_PULL_DATA then
     gatewayConfig.pullPort = gatewayConfig.port
   else
     gatewayConfig.pushPort = gatewayConfig.port
   end
-
   return _GatewayInfoRedis.updateGatewayAddress(gatewayConfig)
 end
 

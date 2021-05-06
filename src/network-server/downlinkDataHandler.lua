@@ -1,3 +1,4 @@
+local RedisDeviceInfo = require("../lora-lib/models/RedisModels/DeviceInfo.lua")
 -- 'use strict';
 
 -- const BluebirdPromise = require('bluebird');
@@ -342,24 +343,20 @@
 --   });
 -- };
 
--- 下行join-accept
+-- 下行join-accept请求
 function joinAcceptDownlink(joinAcceptJson, convertFn)
-  -- let _this = this;
-  local DevAddr = joinAcceptJson.rxpk.data.DevAddr;
-  -- // return _this.mysqlConn.getTxpkInfo(DevAddr).then(function (res) {
-  local res = DeviceInfoRedis.read(DevAddr)
-    if res == nil then
-      p('get txpk config from db failed.')
-      return -2
+  local devAddr = joinAcceptJson.rxpk.data.DevAddr
+  -- local query = {
+  --   DevAddr = devAddr
+  -- }
+  local res = RedisDeviceInfo.Read(devAddr) -- 读取存储的所有内容
+  if res == nil then
+    p("get txpk config from db failed.")
+    return -2
   end
-
-    -- //TODO
-    local dlkObj = convertFn(res, joinAcceptJson);
-    p('Downlink object(JoinAccept) to ${pubNCTopic}', dlkObj)
-    -- return _this.mqClient.publish(pubNCTopic, dlkObj).then(function () { 推送至network-connector模块
-    --   return BluebirdPromise.resolve(dlkObj);
-    -- });
-    return dlkObj
+  local dlkObj = convertFn(res, joinAcceptJson)
+  -- 把数据推送至connector模块处理
+  return dlkObj
 end
 
 -- DownlinkDataHandler.prototype.getMacCmdDownByteLength = function (macCmdArr) {
@@ -410,3 +407,6 @@ end
 -- };
 
 -- module.exports = DownlinkDataHandler;
+return {
+  joinAcceptDownlink = joinAcceptDownlink,
+}

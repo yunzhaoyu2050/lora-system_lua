@@ -42,6 +42,7 @@ local _NetID
 local _defaultConf
 
 -- Class methods or Static methods
+
 -- 生成devaddr
 local function genDevAddr(AppEUI, DevEUI, NwkID)
   local digest = crypto.digest
@@ -60,7 +61,6 @@ local function genDevAddr(AppEUI, DevEUI, NwkID)
   local newDevaddr = buffer:new(string.len(devAddr) / 2)
   newDevaddr = utiles.BufferFromHexString(newDevaddr, 1, devAddr)
   newDevaddr = utiles.BufferSlice(newDevaddr, 1, consts.DEVADDR_LEN - 1)
-  -- utiles.printBuf(newDevaddr)
   return utiles.BufferConcat(NwkID, newDevaddr)
 end
 
@@ -138,6 +138,10 @@ local function joinAcptPHYPackager(joinAcpt)
   }
   local micPayloadJSON = joinAcpt
   micPayloadJSON.MHDR = MHDR
+  -- local mhdrBuf = buffer:new(1)
+  -- mhdrBuf = utiles.bitwiseAssigner(mhdrBuf, consts.MAJOR_OFFSET, consts.MAJOR_LEN, consts.MAJOR_DEFAULT)
+  -- mhdrBuf = utiles.bitwiseAssigner(mhdrBuf, consts.MTYPE_OFFSET, consts.MTYPE_LEN, consts.JOIN_ACCEPT)
+  -- micPayloadJSON.MHDR = mhdrBuf:readUInt8(1)
   return {
     MHDR = MHDR,
     MACPayload = joinAcpt,
@@ -192,18 +196,23 @@ function handler(rxpk)
 
   local frequencyPlan = getFreqPlan(freq, _freqList)
   _defaultConf = consts.DEFAULTCONF[frequencyPlan]
+
   -- Query the existance of DevEUI
   -- If so, process the rejoin procedure
+
   local rand = lcrypto.randomBytes(consts.APPNONCE_LEN)
+
   _AppNonce = buffer:new(consts.APPNONCE_LEN)
   for i = 1, string.len(rand), 1 do
     _AppNonce[i] = string.byte(i)
   end
+
   _NetID = buffer:new(consts.NETID_LEN)
   utiles.BufferFill(_NetID, 0, 1, _NetID.length)
+
   -- Promises
   local rejoinProcedure = function(res) -- 重新入网处理
-    if res.DevAddr ~= "" then -- 查看是否查询到 DevAddr
+    if res.DevAddr ~= "" then -- 是否查询到DevAddr，否则重新生成一个
       _DevAddr = res.DevAddr
     else
       local tmpNetID = utiles.BufferSlice(_NetID, consts.NWKID_OFFSET + 1, consts.NWKID_OFFSET + consts.NWKID_LEN)
@@ -211,7 +220,7 @@ function handler(rxpk)
     end
     return _DevAddr
   end
-  local initDeviceConf = function(deviceConf) -- MySQL 设备配置信息更新
+  local initDeviceConf = function(deviceConf) -- mysql设备配置信息更新
     local query = {DevAddr = deviceConf.DevAddr}
     return DeviceConfig.UpdateItem(query, deviceConf)
   end
@@ -245,6 +254,7 @@ function handler(rxpk)
     local acptPHY = joinAcptPHYPackager(_acpt)
     return acptPHY
   end
+  -- main
   local res = readDevice(appKeyQueryOpt)
   if res == nil then
     return res

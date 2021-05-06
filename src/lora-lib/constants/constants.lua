@@ -1,6 +1,6 @@
 -- @info 静态值
 
-local Buffer = require("buffer").Buffer
+local buffer = require("buffer").Buffer
 local basexx = require("../../../deps/basexx/lib/basexx.lua")
 
 local consts = {}
@@ -19,7 +19,7 @@ function consts.Init()
   consts.NWKID_LEN = 1
   consts.NWKID_OFFSET = 2
   consts.DLSETTINGS_LEN = 1
-  consts.DEFAULT_DLSETTINGS = Buffer:new(consts.DLSETTINGS_LEN)
+  consts.DEFAULT_DLSETTINGS = buffer:new(consts.DLSETTINGS_LEN)
   consts.RX2DR_OFFSET = 0
   consts.RX2DR_LEN = 4
   consts.RX1DROFFSET_OFFSET = consts.RX2DR_OFFSET + consts.RX2DR_LEN
@@ -118,9 +118,9 @@ function consts.Init()
   consts.DEDUPLICATION_DURATION = 200
   consts.COLLECTKEYTEMP_PREFIX = "lora:ns:rx:collect:"
   consts.COLLECTLOCKKEYTEMP_PREFIX = "lora:ns:rx:collect:lock:"
-  -- consts.MACCOMMANDPORT = Buffer.from("00", "hex")
+
   local data = basexx.to_hex("00") -- 转换成hex格式
-  consts.MACCOMMANDPORT = Buffer:new(tostring(data)) -- TODO:
+  consts.MACCOMMANDPORT = buffer:new(tostring(data))
 
   consts.MAX_FCNT_DIFF = 50
   -- data rate parameters
@@ -209,7 +209,7 @@ function consts.Init()
   }
 
   consts.RXDELAY_LEN = 1
-  consts.DEFAULT_RXDELAY = Buffer:new(consts.RXDELAY_LEN)
+  consts.DEFAULT_RXDELAY = buffer:new(consts.RXDELAY_LEN)
 
   -- Constants for PHY payload parsing
   consts.MHDR_OFFSET = 0
@@ -394,7 +394,7 @@ function consts.Init()
   consts.SK_DEVNONCE_OFFSET = consts.SK_NETID_OFFSET + consts.NETID_LEN
 
   -- Default RxDelay for RX1 is 1 sec.
-  consts.DEFAULT_RXDELAY = Buffer:new(consts.RXDELAY_LEN)
+  consts.DEFAULT_RXDELAY = buffer:new(consts.RXDELAY_LEN)
 
   consts.NS_SUB_TOPIC = "NS-sub-test"
   consts.NC_SUB_TOPIC = "NC-sub-test"
@@ -744,7 +744,7 @@ function consts.Init()
     "RX1Delay"
   }
   consts.DEVICEROUTING_CACHE_ATTRIBUTES = {
-    -- 路由信息
+    -- 设备路由信息
     "gatewayId",
     "imme",
     "tmst",

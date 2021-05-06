@@ -9,6 +9,14 @@ local GatewayInfo = {
   hashTable = {} -- 以gatewayId为键值 存储着各个app的配置
 }
 
+-- "gatewayId",
+-- "userID",
+-- "frequencyPlan",
+-- "location",
+-- "RFChain",
+-- "type",
+-- "model"
+
 function GatewayInfo.Write(gatewayId, info)
   if gatewayId == nil then
     p("gatewayId is nil")

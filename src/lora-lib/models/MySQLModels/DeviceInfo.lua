@@ -10,6 +10,20 @@ local DeviceInfo = {
   hashTable = {} -- 以AppEUI为键值 存储着各个app的配置
 }
 
+-- "DevEUI",
+-- "DevAddr",
+-- "AppKey"
+-- "AppEUI",
+-- "DevNonce",
+-- "AppNonce",
+-- "NwkSKey",
+-- "AppSKey",
+-- "activationMode",
+-- "ProtocolVersion",
+-- "FCntUp",
+-- "NFCntDown",
+-- "AFCntDown"
+
 function DeviceInfo.Write(devAddr, info)
   if devAddr == nil then
     p("devAddr is nil")

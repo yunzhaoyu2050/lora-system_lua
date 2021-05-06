@@ -8,35 +8,20 @@ local RedisDeviceInfo = require("../lora-lib/models/RedisModels/DeviceInfo.lua")
 local buffer = require("buffer").Buffer
 local utiles = require("../../utiles/utiles.lua")
 
--- join下行数据处理
-function handler(convertedData)
-  -- // return BluebirdPromise.all([
-  -- //   _this.DeviceStatus.createItem(convertedData),
-  -- //   _this.updateJoinDeviceRouting(convertedData),
-  -- // ]);
-  return updateJoinDeviceRouting(convertedData)
-end
-
--- join request 处理句柄
-function joinRequestHandle(joinResArr)
-  p("Send join message to JS-sub")
-  local ret = joinServer.handleMessage(joinResArr) -- 把joinRequest数据推送至join-server模块
-  return ret
-end
-
-function getIndexByVal(table, val)
+local function getIndexByVal(table, val)
   for i, v in pairs(table) do
     if v == val then
       return i
     end
   end
   p("no find index")
-  return 0
+  return 1 -- 没有找到则返回索引1
 end
 
 -- 更新join请求设备路由信息
-function updateJoinDeviceRouting(deviceStatus)
+local function updateJoinDeviceRouting(deviceStatus)
   local freqPlanOffset
+
   local function getDatr(datr, RX1DROFFSET)
     local dr = consts.DR_PARAM
     local RX1DROFFSETTABLE = dr.RX1DROFFSETTABLE[freqPlanOffset]
@@ -46,21 +31,20 @@ function updateJoinDeviceRouting(deviceStatus)
       if RX1DROFFSETTABLE[DRUP[datr]][RX1DROFFSET] == DRDOWN[key] then
         return key
       end
-    end
+    end 
     return datr
   end
 
   local whereOpts = {DevAddr = deviceStatus.DevAddr}
 
-  local res = MySQLDeviceConfig.readItem(whereOpts) -- mysql
+  local res = MySQLDeviceConfig.readItem(whereOpts) -- mysql DeviceConfig
   if res then
     if res.frequencyPlan == nil then
-      p("DevAddr does not exist frequencyPlan in DeviceConfig")
+      p("DevAddr does not exist frequencyPlan in MySQL DeviceConfig")
       return -2
     end
-
     if res.RX1DRoffset == nil and res.RX1DRoffset ~= 0 then
-      p("DevAddr does not exist RX1DRoffset in DeviceConfig")
+      p("DevAddr does not exist RX1DRoffset in MySQL DeviceConfig")
       return -3
     end
 
@@ -79,11 +63,12 @@ function updateJoinDeviceRouting(deviceStatus)
           end
         end
       ),
-      --   (freqPlanOffset === consts.PLANOFFSET915 ? deviceStatus.chan : deviceStatus.freq),
       powe = consts.TXPK_CONFIG.POWE[freqPlanOffset],
       datr = getDatr(deviceStatus.datr, res.RX1DRoffset),
       modu = deviceStatus.modu,
-      codr = deviceStatus.codr
+      codr = deviceStatus.codr,
+      imme = false,
+      ipol = false
     }
 
     local devInfo = {
@@ -97,12 +82,12 @@ function updateJoinDeviceRouting(deviceStatus)
       DevAddr = updateOpts.DevAddr
     }
 
-    -- // updateOpts.DevAddr = Buffer.from(deviceStatus.DevAddr, 'hex');
     local res = MySQLDeviceRouting.UpdateItem(query, updateOpts)
     if res < 0 then
       return -2
     end
     res = MySQLDeviceInfo.readItem(query, consts.DEVICEINFO_CACHE_ATTRIBUTES)
+    p("function <MySQLDeviceInfo.readItem>:", res)
     for k, v in pairs(res) do
       devInfo[k] = v
     end
@@ -110,19 +95,26 @@ function updateJoinDeviceRouting(deviceStatus)
     for k, v in pairs(res) do
       devInfo[k] = v
     end
-    -- // console.log(devInfo);
-    return RedisDeviceInfo.UpdateItem({DevAddr = updateOpts.DevAddr}, devInfo)
-
-  -- // .then(() => {
-  -- //   return _this.DeviceInfoRedis.read(updateOpts.DevAddr)
-  -- //     .then((res) => {
-  -- //       console.log('from redis');
-  -- //       console.log(res);
-  -- //     });
-  -- // });
+    res = RedisDeviceInfo.UpdateItem({DevAddr = updateOpts.DevAddr}, devInfo)
+    p("function <RedisDeviceInfo.UpdateItem>:", res)
+    return res
   end
   p("DevAddr does not exist in DeviceConfig")
   return -3
+end
+
+-- join 下行数据处理
+function handler(convertedData)
+  -- return BluebirdPromise.all([
+  --   _this.DeviceStatus.createItem(convertedData),
+  --   _this.updateJoinDeviceRouting(convertedData),
+  -- ]);
+  return updateJoinDeviceRouting(convertedData)
+end
+
+-- join request 上行数据处理
+function joinRequestHandle(joinResArr)
+  return joinServer.handleMessage(joinResArr) -- 把joinRequest数据推送至join-server模块
 end
 
 return {

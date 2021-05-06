@@ -1,1 +1,32 @@
-{"1":{"CFList":"","ChDrRange":"","ChMask":"","ADR_ACK_LIMIT":"","DevAddr":"1","MaxEIRP":"","ADR":"","ADR_ACK_DELAY":"","MaxDCycle":"","frequencyPlan":"","RX2DataRate":"","RX1Delay":"","RX1DRoffset":"","NbTrans":"","RX1CFList":"","RX2Freq":""},"00516a59":{"ChDrRange":"5050505050505050","ChMask":"00FF","RX1CFList":"330A6833029832FAC832F2F832EB2832E35832DB8832D3B8","MaxEIRP":12.15,"RX1DRoffset":4,"RX2Freq":434.665,"RX2DataRate":0,"CFList":"330A6833029832FAC832F2F832EB2832E35832DB8832D3B8","DevAddr":"00516a59","frequencyPlan":433}}
+{
+  "1": {
+    "CFList": "",
+    "ChDrRange": "",
+    "ChMask": "",
+    "ADR_ACK_LIMIT": "",
+    "DevAddr": "1",
+    "MaxEIRP": "",
+    "ADR": "",
+    "ADR_ACK_DELAY": "",
+    "MaxDCycle": "",
+    "frequencyPlan": "",
+    "RX2DataRate": "",
+    "RX1Delay": "",
+    "RX1DRoffset": "",
+    "NbTrans": "",
+    "RX1CFList": "",
+    "RX2Freq": ""
+  },
+  "00516a59": {
+    "ChDrRange": "5050505050505050",
+    "ChMask": "00FF",
+    "RX1CFList": "330A6833029832FAC832F2F832EB2832E35832DB8832D3B8",
+    "MaxEIRP": 12.15,
+    "RX1DRoffset": 4,
+    "RX2Freq": 434.665,
+    "RX2DataRate": 0,
+    "CFList": "330A6833029832FAC832F2F832EB2832E35832DB8832D3B8",
+    "DevAddr": "00516a59",
+    "frequencyPlan": 433
+  }
+}

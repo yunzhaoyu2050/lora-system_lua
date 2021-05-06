@@ -1,9 +1,14 @@
 #!/bin/bash
 # start run
 if [ $# -eq 0 ] || [ "$@" == "" ]; then
-    echo usage: ./run test/test.lua
+    echo usage: ./run test/test.lua test, argc1: lua path, argc2: test mode
     exit -1
 fi
+
+if [ "$2" == "test" ]; then
+    cp ./test/data/*.data ./data/
+fi
+
 curPath=`pwd`
 # $curPath/deps/lua-chan/?.so;
 debugLib="$curPath/deps/debug/lib/?.so" # emmy_core.so EmmyLua调试插件

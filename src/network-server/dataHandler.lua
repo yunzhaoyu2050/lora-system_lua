@@ -16,17 +16,18 @@ function process(data)
     p("data.data is nil", data)
     return nil
   end
-  utiles.switch(data.type) {
+  local ret = nil 
+  ret = utiles.switch(data.type) {
     ["ConnectorPubToServer"] = function()
       -- Network Connector --> Network Server
-      DataConverter.uplinkDataHandler(data.data)
+      return DataConverter.uplinkDataHandler(data.data)
     end,
     ["ControllerPubToServer"] = function()
       -- Control Server --> Network Server
     end,
     ["JoinPubToServer"] = function()
       -- Join Server --> Network Server
-      DataConverter.joinAcceptHandler(data.data)
+      return DataConverter.joinAcceptHandler(data.data)
     end,
     ["AppPubToServer"] = function()
       -- Application Server ---> Network Server
@@ -35,6 +36,7 @@ function process(data)
       p("data.type is error", data.type)
     end
   }
+  return ret
 end
 return {
   process = process

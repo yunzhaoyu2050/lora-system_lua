@@ -10,6 +10,18 @@ local DeviceRouting = {
   hashTable = {} -- 以AppEUI为键值 存储着各个app的配置
 }
 
+-- "DevAddr",
+-- "gatewayId",
+-- "imme",
+-- "tmst",
+-- "freq",
+-- "rfch",
+-- "powe",
+-- "datr",
+-- "modu",
+-- "codr",
+-- "ipol"
+
 function DeviceRouting.Write(devAddr, info)
   if devAddr == nil then
     p("devAddr is nil")

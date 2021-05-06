@@ -1,1 +1,32 @@
-{"570da34725f3d574":{"AppNonce":"313233","DevAddr":"00516a59","NwkSKey":"38e8d55fd63f6303296897cb91f53092","ProtocolVersion":"1.0.2","AppKey":"3db14a3cd604f6868fc7f34a3d1818bc","activationMode":"OTAA","DevNonce":"d4b4","DevEUI":"570da34725f3d574","AppSKey":"c36f1e0c23d77276ed3de46dc1f7e756","FCntUp":"","NFCntDown":"","AFCntDown":"","AppEUI":"37aa4f9030fda82a"},"4a9e0384c50c035b":{"AppNonce":"","DevAddr":"4a1c370a","NwkSKey":"ecb110656f4448c4b256f06c8df9ad83","ProtocolVersion":"1.0.2","AppKey":"","activationMode":"ABP","DevNonce":"","DevEUI":"4a9e0384c50c035b","AppSKey":"36d047f5c66a83687852fd7fdec76e0f","FCntUp":"","NFCntDown":"","AFCntDown":"","AppEUI":"37aa4f9030fda82a"}}
+{
+  "570da34725f3d574": {
+    "AppNonce": "313233",
+    "DevAddr": "00516a59",
+    "NwkSKey": "38e8d55fd63f6303296897cb91f53092",
+    "ProtocolVersion": "1.0.2",
+    "AppKey": "3db14a3cd604f6868fc7f34a3d1818bc",
+    "activationMode": "OTAA",
+    "DevNonce": "d4b4",
+    "DevEUI": "570da34725f3d574",
+    "AppSKey": "c36f1e0c23d77276ed3de46dc1f7e756",
+    "FCntUp": "",
+    "NFCntDown": "",
+    "AFCntDown": "",
+    "AppEUI": "37aa4f9030fda82a"
+  },
+  "4a9e0384c50c035b": {
+    "AppNonce": "",
+    "DevAddr": "4a1c370a",
+    "NwkSKey": "ecb110656f4448c4b256f06c8df9ad83",
+    "ProtocolVersion": "1.0.2",
+    "AppKey": "",
+    "activationMode": "ABP",
+    "DevNonce": "",
+    "DevEUI": "4a9e0384c50c035b",
+    "AppSKey": "36d047f5c66a83687852fd7fdec76e0f",
+    "FCntUp": "",
+    "NFCntDown": "",
+    "AFCntDown": "",
+    "AppEUI": "37aa4f9030fda82a"
+  }
+}

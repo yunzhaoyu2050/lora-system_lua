@@ -23,6 +23,11 @@ local consts = require("../lora-lib/constants/constants.lua")
 local gatewayStatConverter = require("./gatewayStatHandler.lua")
 local gatewayInfoRedis = require("../lora-lib/models/RedisModels/GatewayInfo.lua")
 local DeviceInfoRedis = require("../lora-lib/models/RedisModels/DeviceInfo.lua")
+local connector = require("../network-connector/connector.lua")
+local buffer = require("buffer").Buffer
+local crypto = require("../../deps/lua-openssl/lib/crypto.lua")
+local lcrypto = require("../../deps/luvit-github/deps/tls/lcrypto.lua")
+
 -- function DataConverter(mqClient, redisConn, mysqlConn, log) {
 --   this.deDuplication = new DeDuplication(redisConn.DeDuplication);
 --   this.gatewayStatHandler = new GatewayStatHandler(mysqlConn.GatewayStatus);
@@ -110,6 +115,9 @@ function uplinkDataHandler(jsonData)
         p('Uplink Json has no "data" in rxpk')
         return -2
       end
+
+      local messageType = uplinkDataJson.rxpk.data.MHDR.MType
+
       if messageType == consts.UNCONFIRMED_DATA_UP or messageType == consts.CONFIRMED_DATA_UP then
         -- Application message
         ret = appDataConverter(uplinkDataJson)
@@ -118,7 +126,7 @@ function uplinkDataHandler(jsonData)
           return _this.appDataHandler.handle(rxInfoArr, appObj)
         end
       end
-      local messageType = uplinkDataJson.rxpk.data.MHDR.MType
+
       if messageType == consts.JS_MSG_TYPE.request then
         p("Receive repeated join request message")
         -- Join request message
@@ -126,12 +134,11 @@ function uplinkDataHandler(jsonData)
         if ret == nil then
           return -6
         end
-
         p("Downlink message process")
-        joinAcceptHandler(ret)
-        return 0
-
+        ret = joinAcceptHandler(ret) -- join-accept消息下行处理
+        return ret -- 把数据推送至network-connector模块
       end
+      
     elseif uplinkDataJson.stat ~= nil then
       -- });
       -- // });
@@ -261,24 +268,24 @@ end
 function joinAcceptHandler(joinAcceptJson)
   local joinAcceptObj = joinAcceptJson
   local joinRfData = joinRfConverter(joinAcceptObj)
-  local res = joinResHandler.handler(joinRfData)
+  local res = joinResHandler.handler(joinRfData) -- 下行数据统计 数据库更新
   return downlinkDataHandler.joinAcceptDownlink(joinAcceptObj, joinAcceptConverter)
 end
 
+-- join-accept消息下行数据打包
 function joinAcceptConverter(rfJson, joinReqJson)
   local outputObject = {}
   outputObject.version = joinReqJson.version
-  outputObject.token = crypto.randomBytes(consts.UDP_TOKEN_LEN)
-  outputObject.identifier = Buffer:new(consts.UDP_IDENTIFIER_LEN)
-  outputObject.identifier.writeUInt8(consts.UDP_ID_PULL_RESP, "hex")
+  outputObject.token = lcrypto.randomBytes(consts.UDP_TOKEN_LEN)
+  outputObject.identifier = buffer:new(consts.UDP_IDENTIFIER_LEN)
+  outputObject.identifier:writeUInt8(1, consts.UDP_ID_PULL_RESP)
   outputObject.gatewayId = rfJson.gatewayId
-
-  function generateTxpkJson()
+  local generateTxpkJson = function()
     return {
       imme = rfJson.imme,
       tmst = rfJson.tmst,
       freq = rfJson.freq,
-      rfch = rfJson.rfch,
+      rfch = rfJson.rfch, -- ?
       powe = rfJson.powe,
       datr = rfJson.datr,
       modu = rfJson.modu,
@@ -287,9 +294,7 @@ function joinAcceptConverter(rfJson, joinReqJson)
       data = joinReqJson.rxpk.data
     }
   end
-
   outputObject.txpk = generateTxpkJson()
-
   return outputObject
 end
 
