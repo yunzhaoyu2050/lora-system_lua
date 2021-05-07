@@ -3,10 +3,26 @@ local consts = require("../../constants/constants.lua")
 local MySQLModelsGatewayInfo = require("../MySQLModels/GatewayInfo.lua")
 
 local GatewayInfo = {
-  hashTable = {} -- 根据键值存储着网关信息
+  hashTable = {}
 }
 
+-- 5、GatewayInfo.lua,		key: gatewayId
+--  "gatewayId",	新增
+--  "pullPort",
+--  "pushPort",
+--  "version",
+--  "address",
+--  "userID"
+
 local function SynchronousMysqlData()
+  if GatewayInfo.hashTable == nil then
+    p("redis gatewayInfo function <SynchronousMySqlData>, GatewayInfo.hashTable is nil")
+    return -1
+  end
+  if MySQLModelsGatewayInfo.hashTable == nil then
+    p("redis gatewayInfo function <SynchronousMySqlData>,  MySQLModelsGatewayInfo.hashTable is nil")
+    return -1
+  end
   for k, v in pairs(MySQLModelsGatewayInfo.hashTable) do
     GatewayInfo.hashTable[k] = {}
     for i, j in pairs(MySQLModelsGatewayInfo.hashTable[k]) do
@@ -23,7 +39,7 @@ local function SynchronousMysqlData()
       end
     end
   end
-  p("redis <GatewayInfo>, synchronous mysql data end")
+  p("redis gatewayInfo function <SynchronousMySqlData>, synchronous mysql data end")
   return 0
 end
 
@@ -34,7 +50,7 @@ end
 
 function GatewayInfo.Read(gatewayId)
   if gatewayId == nil then
-    p("gatewayId is nil")
+    p("redis gatewayInfo function <GatewayInfo.Read>, gatewayId is nil")
     return -1
   end
   return GatewayInfo.hashTable[gatewayId]
@@ -42,7 +58,7 @@ end
 
 function GatewayInfo.Write(gatewayId, info)
   if gatewayId == nil then
-    p("gatewayId is nil")
+    p("redis gatewayInfo function <GatewayInfo.Write>, gatewayId is nil")
     return -1
   end
   if GatewayInfo.hashTable[gatewayId] == nil then
@@ -53,24 +69,24 @@ function GatewayInfo.Write(gatewayId, info)
       address = info.address,
       userID = info.userID
     }
-    p("inster a new device info, gatewayId:" .. gatewayId)
+    p("redis gatewayInfo function <GatewayInfo.Write>, inster a new device info, gatewayId:" .. gatewayId)
     return 0
   end
-  p("devaddr already exists, gatewayId:" .. gatewayId)
+  p("redis gatewayInfo function <GatewayInfo.Write>, devaddr already exists, gatewayId:" .. gatewayId)
   return -2
 end
 
 function GatewayInfo.Update(gatewayId, info)
   if gatewayId == nil then
-    p("gatewayId is nil")
+    p("redis gatewayInfo function <GatewayInfo.Update>, gatewayId is nil")
     return -1
   end
   if GatewayInfo.hashTable[gatewayId] ~= nil then
     -- GatewayInfo.hashTable[gatewayId]:update(info)
-    p("update device info, gatewayId:" .. gatewayId)
+    p("redis gatewayInfo function <GatewayInfo.Update>, update device info, gatewayId:" .. gatewayId)
     return 0
   end
-  p("error :update device info is nil, gatewayId:" .. gatewayId)
+  p("redis gatewayInfo function <GatewayInfo.Update>, error :update device info is nil, gatewayId:" .. gatewayId)
   return -2
 end
 
@@ -85,7 +101,7 @@ end
 -- @return 成功：指定gatewayId的userID值, 失败：nil
 function GatewayInfo.GetuserID(gatewayId)
   if GatewayInfo.hashTable[gatewayId] == nil then
-    p("gatewayId does not exist, please register.")
+    p("redis gatewayInfo function <GatewayInfo.GetuserID>, gatewayId does not exist, please register.")
     return nil
   end
   return GatewayInfo.hashTable[gatewayId].userID
@@ -96,11 +112,11 @@ end
 -- @return 入参错误：-1, 成功：0， 其他错误：<0
 function GatewayInfo.UpdateuserID(gatewayId, data)
   if gatewayId == nil or data == nil then
-    p("function <GatewayInfo.UpdateuserID>, input param is nil")
+    p("redis gatewayInfo function <GatewayInfo.UpdateuserID>, input param is nil")
     return -1
   end
   if GatewayInfo.hashTable[gatewayId] == nil then
-    p("Redis GatewayInfo.hashTable[gatewayId] is nil")
+    p("redis gatewayInfo function <GatewayInfo.UpdateuserID>, Redis GatewayInfo.hashTable[gatewayId] is nil")
     return -2
   end
   GatewayInfo.hashTable[gatewayId].userID = data
@@ -112,11 +128,14 @@ end
 -- @return 入参错误：-1, 成功：0， 其他错误：<0
 function GatewayInfo.updateGatewayAddress(gatewayConfig)
   if gatewayConfig == nil then
-    p("function <GatewayInfo.updateGatewayAddress>, gatewayConfig param is nil")
+    p("redis gatewayInfo function <GatewayInfo.updateGatewayAddress>, gatewayConfig param is nil")
     return -1
   end
   if GatewayInfo.hashTable[gatewayConfig.gatewayId] == nil then
-    p("gatewayId does not exist, please register. gatewayId:" .. gatewayConfig.gatewayId)
+    p(
+      "redis gatewayInfo function <GatewayInfo.updateGatewayAddress>, gatewayId does not exist, please register. gatewayId:" ..
+        gatewayConfig.gatewayId
+    )
     return -2
   end
   if gatewayConfig.ip ~= nil then
@@ -127,7 +146,10 @@ function GatewayInfo.updateGatewayAddress(gatewayConfig)
   elseif gatewayConfig.identifier == consts.UDP_ID_PUSH_DATA then
     GatewayInfo.hashTable[gatewayConfig.gatewayId].pushPort = gatewayConfig.port
   else
-    p("Unknown value, identifier:" .. gatewayConfig.identifier)
+    p(
+      "redis gatewayInfo function <GatewayInfo.updateGatewayAddress>, Unknown value, identifier:" ..
+        gatewayConfig.identifier
+    )
   end
   return 0
 end

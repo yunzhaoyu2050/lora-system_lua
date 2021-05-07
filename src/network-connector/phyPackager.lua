@@ -52,9 +52,9 @@ function packager(phyPayloadJSON)
   local MACPayload = phyPayloadJSON.MACPayload
   local MHDR
   local FHDR
-  -- //const MType = utils.bitwiseFilter(phyPayloadJSON.MHDR, consts.MTYPE_OFFSET, consts.MTYPE_LEN);
+  -- const MType = utils.bitwiseFilter(phyPayloadJSON.MHDR, consts.MTYPE_OFFSET, consts.MTYPE_LEN);
   local FIRMED_DATA_DOWN = function()
-    --// 配置下发数据
+    -- 配置下发数据
     if MACPayload.FPort ~= 0 then
       MACPayload.FPort = buffer:new(0)
     end
@@ -68,6 +68,7 @@ function packager(phyPayloadJSON)
     MHDR = MHDRPackager(phyPayloadJSON.MHDR) --mhdr打包
     FHDR = FHDRPackager(MACPayload.FHDR) --fhdr打包
   end
+
   local JOIN_ACCEPT = function()
     local devaddr = MACPayload.DevAddr
     local key = _deviceInfoMysql.readItem({DevAddr = devaddr}, {"AppKey"})
@@ -75,6 +76,7 @@ function packager(phyPayloadJSON)
       return joinHandler.packager(phyPayloadJSON, key.AppKey)
     end
   end
+  
   local ret = utiles.switch(MType) {
     [consts.JOIN_ACCEPT] = JOIN_ACCEPT,
     [consts.UNCONFIRMED_DATA_DOWN] = FIRMED_DATA_DOWN,
@@ -83,6 +85,7 @@ function packager(phyPayloadJSON)
   if ret ~= nil then
     return ret
   end
+  -- 以下是对于FRMPayload的负载情况下的
   -- //Encryption 加密
   local direction = buffer:new(consts.DIRECTION_LEN)
   direction:writeUInt8(consts.BLOCK_DIR_CLASS.Down)

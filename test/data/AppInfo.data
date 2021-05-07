@@ -1,12 +1,17 @@
 {
+  "00": {
+    "AppEUI": "00",
+    "name": "lightFire",
+    "userID": "wudi"
+  },
   "37aa4f9030fda82a": {
-    "AppEUI": "37aa4f9030fda82a",
+    "AppEUI": "37aa4f9030fda82a", // 包含十六进制数字的字符串
     "name": "loraWan",
     "userID": "zhaoyu"
   },
-  "2f0f6asd5264d847": {
-    "AppEUI": "2f0f6asd5264d847",
-    "name": "dogLine",
-    "userID": "zhangsan"
+  "0011223344556677": {
+    "AppEUI": "0011223344556677", // 包含十六进制数字的字符串
+    "name": "loraWan",
+    "userID": "zhagsan"
   }
 }

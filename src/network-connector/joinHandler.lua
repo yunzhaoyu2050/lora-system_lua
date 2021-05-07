@@ -3,43 +3,72 @@ local consts = require("../lora-lib/constants/constants.lua")
 local buffer = require("buffer").Buffer
 local utiles = require("../../utiles/utiles.lua")
 local aesCmac = require("../../deps/node-aes-cmac-lua/lib/aes-cmac.lua").aesCmac
+local crypto = require("../../deps/lua-openssl/lib/crypto.lua")
 
--- phy层打包数据
-function packager(phyPayloadJSON, key)
-  phyPayloadJSON.MHDR = MHDRPackager(phyPayloadJSON.MHDR)
-  local MACPayloadJSON = phyPayloadJSON.MACPayload
-  local MIC = joinMICCalculator(phyPayloadJSON, key, "accept")
-  local macpayload =
-    buffer.concat(
-    {
-      utiles.reverse(MACPayloadJSON.AppNonce),
-      utiles.reverse(MACPayloadJSON.NetID),
-      utiles.reverse(MACPayloadJSON.DevAddr),
-      utiles.reverse(MACPayloadJSON.DLSettings),
-      utiles.reverse(MACPayloadJSON.RxDelay)
-    }
-  )
-  if MACPayloadJSON.CFList ~= nil then
-    macpayload = buffer.concat({macpayload, MACPayloadJSON.CFList})
-  end
-  macpayload = buffer.concat({macpayload, MIC})
-  local encmacpayload = AcptEncryption(macpayload, key)
-  local phypayload = buffer.concat({phyPayloadJSON.MHDR, encmacpayload})
-  return phypayload
-end
-
-function MHDRPackager(mhdr)
+local function MHDRPackager(mhdr)
   local MHDR = buffer:new(consts.MHDR_LEN)
   utiles.bitwiseAssigner(MHDR, consts.MTYPE_OFFSET, consts.MTYPE_LEN, mhdr.MType)
   utiles.bitwiseAssigner(MHDR, consts.MAJOR_OFFSET, consts.MAJOR_LEN, mhdr.Major)
   return MHDR
 end
 
-function AcptEncryption(acpt, key)
+local function AcptEncryption(acpt, key)
+  local newKey = buffer:new(string.len(key)) -- mysql存储的是hex字符串需要转换成dec的buffer
+  utiles.BufferFill(newKey, 0, 1, newKey.length)
+  if type(key) == "string" then
+    newKey = utiles.BufferFromHexString(newKey, 1, key)
+  else
+    newKey = key
+  end
+  newKey = utiles.BufferSlice(newKey, 1, 16)
+
   local iv = ""
-  local cipher = crypto.createDecipheriv(consts.ENCRYPTION_ALGO, key, iv)
-  cipher.setAutoPadding(false)
-  return cipher.update(acpt)
+  -- consts.ENCRYPTION_ALGO
+  local cipher = crypto.encrypt("aes128", acpt:toString(), newKey:toString(), iv)
+  -- cipher.setAutoPadding(false)
+  cipher = crypto.hex(cipher)
+  local ret = buffer:new(string.len(cipher) / 2)
+  utiles.BufferFromHexString(ret, 1, cipher)
+  ret = utiles.BufferSlice(ret, 1, 16)
+  return ret
+end
+
+-- phy层打包数据
+function packager(phyPayloadJSON, key)
+  phyPayloadJSON.MHDR = MHDRPackager(phyPayloadJSON.MHDR)
+  local MACPayloadJSON = phyPayloadJSON.MACPayload -- macpayload层数据
+
+  local MIC = joinMICCalculator(phyPayloadJSON, key, "accept") -- 计算mic值aes_cmac
+
+  -- macpayload数据打包
+  local macpayload = utiles.BufferConcat(MACPayloadJSON.AppNonce, MACPayloadJSON.NetID)
+  local _devAddr = buffer:new(consts.DEVADDR_LEN)
+  local _devAddr = utiles.BufferFromHexString(_devAddr, 1, MACPayloadJSON.DevAddr)
+  macpayload = utiles.BufferConcat(macpayload, _devAddr)
+  macpayload = utiles.BufferConcat(macpayload, MACPayloadJSON.DLSettings)
+  macpayload = utiles.BufferConcat(macpayload, MACPayloadJSON.RxDelay)
+
+  if MACPayloadJSON.CFList ~= nil then
+    macpayload = utiles.BufferConcat(macpayload, MACPayloadJSON.CFList)
+  end
+
+  macpayload = utiles.BufferConcat(macpayload, MIC)
+
+  -- join-accept消息是使用AppKey进行加密的， 如下:
+  -- aes128_decrypt(AppKey, AppNonce | NetID | DevAddr | DLSettings | RxDelay | CFList | MI
+  -- C)
+  -- 注意:网络服务器在 ECB 模式下使用一个 AES 解密操作去对 join-accept 消息进行加
+  -- 密， 因此终端就可以使用一个 AES 加密操作去对消息进行解密。 这样终端只需要去实现
+  -- AES 加密而不是 AES 解密。
+  -- 注意:建立这两个会话密钥使得 网络服务器 中的网络运营商无法窃听应用层数据。 在这
+  -- 样的设置中， 应用提供商必须支持网络运营商处理终端的加网以及为终端生成
+  -- NwkSkey。 同时应用提供商向网络运营商承诺， 它将承担终端所产生的任何流量费用并
+  -- 且保持用于保护应用数据的AppSKey的完全控制权。
+  local encmacpayload = AcptEncryption(macpayload, key) -- ?
+
+  local phypayload = utiles.BufferConcat(phyPayloadJSON.MHDR, encmacpayload)
+  -- 生成打包好的数据
+  return phypayload
 end
 
 -- @info Join-Request 消息解析
@@ -75,30 +104,32 @@ function joinMICCalculator(requiredFields, key, typeInput)
     -- consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + consts.DEVADDR_LEN + consts.DLSETTINGS_LEN + consts.RXDELAY_LEN -- consts.BLOCK_LEN_ACPT_MIC_BASE
     micPayload = buffer:new(consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + consts.DEVADDR_LEN + consts.DLSETTINGS_LEN + consts.RXDELAY_LEN) -- Buffer.concat(bufferArray, consts.BLOCK_LEN_ACPT_MIC_BASE);
     utiles.BufferFill(micPayload, 0, 1, micPayload.length)
-    micPayload:writeUInt8(1, requiredFields.MHDR)
-    utiles.BufferWrite(micPayload, consts.MHDR_LEN + 1, utiles.reverse(requiredFields.AppNonce), consts.APPNONCE_LEN)
+    micPayload:writeUInt8(1, requiredFields.MHDR:readUInt8(1)) -- requiredFields.MHDR 是buffer类型
+    utiles.BufferWrite(micPayload, consts.MHDR_LEN + 1, utiles.reverse(requiredFields.MACPayload.AppNonce), consts.APPNONCE_LEN)
     utiles.BufferWrite(
       micPayload,
       consts.MHDR_LEN + consts.APPNONCE_LEN + 1,
-      utiles.reverse(requiredFields.NetID),
+      utiles.reverse(requiredFields.MACPayload.NetID),
       consts.NETID_LEN
     )
+    local _devAddr = buffer:new(consts.DEVADDR_LEN)
+    local _devAddr = utiles.BufferFromHexString(_devAddr, 1, requiredFields.MACPayload.DevAddr)
     utiles.BufferWrite(
       micPayload,
       consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + 1,
-      utiles.reverse(requiredFields.DevAddr),
+      utiles.reverse(_devAddr), -- requiredFields.MACPayload.DevAddr 是string类型
       consts.DEVADDR_LEN
     )
     utiles.BufferWrite(
       micPayload,
       consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + consts.DEVADDR_LEN + 1,
-      utiles.reverse(requiredFields.DLSettings),
+      utiles.reverse(requiredFields.MACPayload.DLSettings),
       consts.DLSETTINGS_LEN
     )
     utiles.BufferWrite(
       micPayload,
       consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + consts.DEVADDR_LEN + consts.DLSETTINGS_LEN + 1,
-      utiles.reverse(requiredFields.RxDelay),
+      utiles.reverse(requiredFields.MACPayload.RxDelay),
       consts.RXDELAY_LEN
     )
   end
@@ -190,6 +221,7 @@ function parser(phyPayloadJSON)
   if res ~= nil then
     return phyPayload
   else
+    p("mic value verification failed")
     return nil
   end
 end

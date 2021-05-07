@@ -26,11 +26,11 @@ local DeviceInfo = {
 -- redis同步mysql数据
 local function SynchronousMySqlData()
   if DeviceInfo.hashTable == nil then
-    p("redis deviceInfo.hashTable is nil")
+    p("redis deviceInfo function <SynchronousMySqlData>, deviceInfo.hashTable is nil")
     return -1
   end
   if mysqlDeviceInfo.hashTable == nil then
-    p("mysql deviceInfo.hashTable is nil")
+    p("redis deviceInfo function <SynchronousMySqlData>, mysqlDeviceInfo.hashTable is nil")
     return -1
   end
   DeviceInfo.hashTable = {}
@@ -90,7 +90,7 @@ local function SynchronousMySqlData()
       end
     end
   end
-  p("redis <DeviceInfo>, synchronous mysql data end")
+  p("redis deviceInfo function <SynchronousMySqlData>, synchronous mysql data end")
   return 0
 end
 
@@ -102,7 +102,7 @@ end
 
 local function GetItemHandle(kVal, table)
   if kVal == nil or table == nil then
-    p("redis function <GetItemHandle>, input param is nil")
+    p("redis deviceInfo function <GetItemHandle>, input param is nil")
     return 0
   end
   return utiles.switch(kVal) {
@@ -149,11 +149,11 @@ local function GetItemHandle(kVal, table)
       return table.ipol
     end,
     [utiles.Nil] = function()
-      p("kVal is nil")
+      p("redis deviceInfo function <GetItemHandle>, kVal is nil")
       return 0
     end,
     [utiles.Default] = function()
-      p("item is other, please check it.", kVal)
+      p("redis deviceInfo function <GetItemHandle>, item is other, please check it.", kVal)
       return 0
     end
   }
@@ -170,7 +170,7 @@ end
 -- @return 返回指定devaddr项的所有信息
 function DeviceInfo.Read(devaddr)
   if devaddr == nil then
-    p("devaddr is nil")
+    p("redis deviceInfo function <DeviceInfo.Read>, devaddr is nil")
     return -1
   end
   return DeviceInfo.hashTable[devaddr]
@@ -182,7 +182,7 @@ end
 -- @return -1 失败 成员集合 成功
 function DeviceInfo.readItem(devaddr, item)
   if devaddr == nil then
-    p("devaddr is nil")
+    p("redis deviceInfo function <DeviceInfo.readItem>, devaddr is nil")
     return -1
   end
   if item == nil then
@@ -252,10 +252,10 @@ function DeviceInfo.readItem(devaddr, item)
             tmp.ipol = DeviceInfo.hashTable[k].ipol
           end,
           [utiles.Nil] = function()
-            p("i is nil")
+            p("redis deviceInfo function <DeviceInfo.readItem>, item[i] is nil")
           end,
           [utiles.Default] = function()
-            p("item is other, please check it.", i)
+            p("redis deviceInfo function <DeviceInfo.readItem>, item is other, please check it.", item[i])
           end
         }
       end
@@ -270,7 +270,7 @@ end
 -- @return 0 成功 -1 参数错误 -2 设备已经存在
 function DeviceInfo.Write(devaddr, info)
   if devaddr == nil then
-    p("devaddr is nil")
+    p("redis deviceInfo function <DeviceInfo.Write>, devaddr is nil")
     return -1
   end
   if DeviceInfo.hashTable[devaddr] == nil then
@@ -293,10 +293,10 @@ function DeviceInfo.Write(devaddr, info)
     for k, v in pairs(info) do
       DeviceInfo.hashTable[devaddr][k] = v
     end
-    p("inster a new device info, devaddr:" .. devaddr)
+    p("redis deviceInfo function <DeviceInfo.Write>, inster a new device info, devaddr:" .. devaddr)
     return 0
   end
-  p("devaddr already exists, devaddr:" .. devaddr)
+  p("redis deviceInfo function <DeviceInfo.Write>, devaddr already exists, devaddr:" .. devaddr)
   return -2
 end
 
@@ -359,7 +359,7 @@ end
 -- @return 0 成功 -1 参数错误 -2 设备已经存在
 function DeviceInfo.Update(devaddr, info)
   if devaddr == nil then
-    p("devaddr is nil")
+    p("redis deviceInfo function <DeviceInfo.Update>, devaddr is nil")
     return -1
   end
   if DeviceInfo.hashTable[devaddr] ~= nil then
@@ -369,10 +369,10 @@ function DeviceInfo.Update(devaddr, info)
       DeviceInfo.hashTable[devaddr][k] = v
       -- end
     end
-    p("update device info, devaddr:" .. devaddr)
+    p("redis deviceInfo function <DeviceInfo.Update>, update device info, devaddr:" .. devaddr)
     return 0
   end
-  p("error :update device info is nil, devaddr:" .. devaddr)
+  p("redis deviceInfo function <DeviceInfo.Update>, error :update device info is nil, devaddr:" .. devaddr)
   return -2
 end
 
@@ -382,7 +382,7 @@ end
 -- @return 0:成功 <0:失败
 function DeviceInfo.UpdateItem(appoint, item)
   if appoint == nil then
-    p("index or item is nil")
+    p("redis deviceInfo function <DeviceInfo.UpdateItem>, index or item is nil")
     return -1
   end
   if item == nil then
@@ -448,10 +448,10 @@ function DeviceInfo.UpdateItem(appoint, item)
             DeviceInfo.hashTable[k].ipol = v
           end,
           [utiles.Nil] = function()
-            p("i is nil")
+            p("redis deviceInfo function <DeviceInfo.UpdateItem>, i is nil")
           end,
           [utiles.Default] = function()
-            p("item is other, add it.", i, v)
+            p("redis deviceInfo function <DeviceInfo.UpdateItem>, item is other, add it.", i, v)
             DeviceInfo.hashTable[k][i] = v -- 不存在该条目需要将其新添加进去
           end
         }

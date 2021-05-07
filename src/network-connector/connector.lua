@@ -1,8 +1,10 @@
 local udp = require("./udp.lua")
 local udpHandler = require("./udpHandler.lua")
 local gatewayHandler = require("./gatewayHandler.lua")
+local gatewayInfoRedis = require("../lora-lib/models/RedisModels/GatewayInfo.lua")
 local consts = require("../lora-lib/constants/constants.lua")
 local phyPackager = require("./phyPackager.lua")
+local basexx = require("../../deps/basexx/lib/basexx.lua")
 
 -- connector模块任务
 
@@ -11,6 +13,7 @@ function UplinkTask()
   udp.socket:on(
     "message",
     function(message, udpInfo)
+      p("------------------------------------start--------------------------------------------")
       p("recv message: ", "ip:" .. udpInfo.ip, "port:" .. udpInfo.port, message)
       -- 1. udp层粗解析
       local udpUlJSON = udpHandler.parser(message)
@@ -40,7 +43,7 @@ function UplinkTask()
       ret = udpHandler.ACK(udpUlJSON)
       if ret ~= nil then
         udp.Send(ret, udpInfo)
-      p("udp send message to gateway, udp-ip:", udpInfo.ip, "udp-port:", udpInfo.port, "message:<", ret, ">end")
+        p("udp send message to gateway, udp-ip:", udpInfo.ip, "udp-port:", udpInfo.port, "message:<", ret, ">end")
       end
       -- 5. pushData数据解析
       if udpUlJSON.pushData ~= nil then
@@ -48,11 +51,15 @@ function UplinkTask()
         ret = udpHandler.pushDataParser(udpUlJSON)
         if ret ~= nil then
           local retStat, retRxpk = gatewayHandler.uploadPushData(ret)
-          for k,_ in pairs(retRxpk) do
-            ret = DownlinkTask(retRxpk[k])
+          if retRxpk ~= nil then
+            for k, _ in pairs(retRxpk) do
+              ret = DownlinkTask(retRxpk[k])
+            end
+          else
+            p("uplink process falied")
           end
-          return ret 
-          -- return gatewayHandler.uploadPushData(ret)
+          return ret
+        -- return gatewayHandler.uploadPushData(ret)
         end
       else
         -- return mqClient.publish(config.mqClient_nc.topics.pubToServer, udpUlJSON);
@@ -69,15 +76,16 @@ function DownlinkTask(message)
     p("udpHandler is nil.")
     return -1
   end
+  p("-------------------------------------end--------------------------------------------")
   local PHYPayload = phyPackager.packager(message.txpk.data) -- phy层打包
   if PHYPayload then
     message.txpk.size = PHYPayload.length
-    message.txpk.data = PHYPayload.toString(consts.DATA_ENCODING)
+    message.txpk.data = basexx.to_base64(PHYPayload:toString()) -- 转换成base64格式 -- consts.DATA_ENCODING
     local udpDlData = udpHandler.packager(message) -- udp层打包
-    local udpInfo = modelIns.RedisModel.GatewayInfo.queryGatewayAddress(message.gatewayId) -- 取得网关信息
+    local udpInfo = gatewayInfoRedis.Read(message.gatewayId) -- 取得网关信息
     if udpInfo then
       udpInfo.port = udpInfo.pullPort
-      return udp.send(udpDlData, udpInfo, message.value.gatewayId)
+      return udp.Send(udpDlData, udpInfo, message.gatewayId)
     end
   end
 end

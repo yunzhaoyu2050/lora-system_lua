@@ -1,12 +1,12 @@
 {
-  "1": {
+  "0000": {
     "CFList": "",
     "ChDrRange": "",
     "ChMask": "",
     "ADR_ACK_LIMIT": "",
-    "DevAddr": "1",
+    "DevAddr": "00000000", // 包含十六进制数字的字符串
     "MaxEIRP": "",
-    "ADR": "",
+    "ADR": false,
     "ADR_ACK_DELAY": "",
     "MaxDCycle": "",
     "frequencyPlan": "",

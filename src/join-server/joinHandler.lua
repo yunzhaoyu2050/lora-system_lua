@@ -5,6 +5,7 @@ local buffer = require("buffer").Buffer
 local utiles = require("../../utiles/utiles.lua")
 local bit = require("bit")
 local crypto = require("../../deps/lua-openssl/lib/crypto.lua")
+local rand = crypto.rand
 local lcrypto = require("../../deps/luvit-github/deps/tls/lcrypto.lua")
 
 -- DLSettings字段打包
@@ -24,6 +25,7 @@ local function DLSettingsPackager(RX1DRoffset, RX2DR)
   DLSettings = utiles.bitwiseAssigner(DLSettings, consts.OPTNEG_OFFSET, consts.OPTNEG_LEN, OptNeg)
   DLSettings = utiles.bitwiseAssigner(DLSettings, consts.RX1DROFFSET_OFFSET, consts.RX1DROFFSET_LEN, RX1DRoffset)
   DLSettings = utiles.bitwiseAssigner(DLSettings, consts.RX2DR_OFFSET, consts.RX2DR_LEN, RX2DR)
+  -- utiles.printBuf(DLSettings)
   return DLSettings
 end
 
@@ -68,6 +70,7 @@ end
 local function genSKey(AppKey, nonce, inputType)
   local sessionBuf = buffer:new(consts.BLOCK_LEN)
   utiles.BufferFill(sessionBuf, 0, 1, sessionBuf.length)
+
   inputType = inputType or "NWK"
   if inputType == "NWK" then
     sessionBuf[1] = 0x01
@@ -75,11 +78,11 @@ local function genSKey(AppKey, nonce, inputType)
     sessionBuf[1] = 0x02
   end
 
-  local appnonce = utiles.reverse(nonce.AppNonce) -- 大小端转换
+  local appnonce = utiles.reverse(nonce.AppNonce) -- 转换成网络字节序
   local netid = utiles.reverse(nonce.NetID)
   local devnonce = utiles.reverse(nonce.DevNonce)
 
-  utiles.BufferWrite(sessionBuf, consts.SK_APPNONCE_OFFSET + 1, appnonce, consts.APPNONCE_LEN) -- ???
+  utiles.BufferWrite(sessionBuf, consts.SK_APPNONCE_OFFSET + 1, appnonce, consts.APPNONCE_LEN) -- 再将转换成网络字节序的数据打包成buffer
   utiles.BufferWrite(sessionBuf, consts.SK_NETID_OFFSET + 1, netid, consts.NETID_LEN)
   utiles.BufferWrite(sessionBuf, consts.SK_DEVNONCE_OFFSET + 1, devnonce, consts.DEVNONCE_LEN)
 
@@ -94,6 +97,7 @@ local function genSKey(AppKey, nonce, inputType)
 
   -- NwkSKey = aes128_encrypt(AppKey, 0x01 | AppNonce | NetID | DevNonce | pad 16 )
   -- AppSKey = aes128_encrypt(AppKey, 0x02 | AppNonce | NetID | DevNonce | pad 16 )
+
   local iv = "" --crypto.randomBytes(consts.IV_LEN);
   -- consts.ENCRYPTION_AES128
   local res = crypto.encrypt("aes128", sessionBuf:toString(), newKey:toString(), iv) -- aes128 ecb加密
@@ -104,7 +108,7 @@ local function genSKey(AppKey, nonce, inputType)
   return sessionKey
 end
 
--- 粗打包 生成 join-accept 中join-accept
+-- 粗打包 生成 join-accept
 local function genAcpt(joinReq, DLSettings, RxDelay)
   -- CFLIST TODO
   local joinAcpt = {
@@ -136,8 +140,8 @@ local function joinAcptPHYPackager(joinAcpt)
     MType = consts.JOIN_ACCEPT,
     Major = consts.MAJOR_DEFAULT
   }
-  local micPayloadJSON = joinAcpt
-  micPayloadJSON.MHDR = MHDR
+  -- local micPayloadJSON = joinAcpt
+  -- micPayloadJSON.MHDR = MHDR
   -- local mhdrBuf = buffer:new(1)
   -- mhdrBuf = utiles.bitwiseAssigner(mhdrBuf, consts.MAJOR_OFFSET, consts.MAJOR_LEN, consts.MAJOR_DEFAULT)
   -- mhdrBuf = utiles.bitwiseAssigner(mhdrBuf, consts.MTYPE_OFFSET, consts.MTYPE_LEN, consts.JOIN_ACCEPT)
@@ -179,7 +183,7 @@ local function getFreqPlan(freq, freqList)
   end
 end
 
--- join server模块 join请求处理
+-- join server模块 join请求数据处理单元
 function handler(rxpk)
   p("recv join request message")
   local joinReqPayload = rxpk.data
@@ -200,12 +204,13 @@ function handler(rxpk)
   -- Query the existance of DevEUI
   -- If so, process the rejoin procedure
 
-  local rand = lcrypto.randomBytes(consts.APPNONCE_LEN)
-
+  -- local random = lcrypto.randomBytes(consts.APPNONCE_LEN)
+  local random = rand.bytes(consts.APPNONCE_LEN)
   _AppNonce = buffer:new(consts.APPNONCE_LEN)
-  for i = 1, string.len(rand), 1 do
+  for i = 1, string.len(random), 1 do
     _AppNonce[i] = string.byte(i)
   end
+  -- p("_AppNonce: ", utiles.BufferToHexString(_AppNonce))
 
   _NetID = buffer:new(consts.NETID_LEN)
   utiles.BufferFill(_NetID, 0, 1, _NetID.length)
@@ -213,6 +218,9 @@ function handler(rxpk)
   -- Promises
   local rejoinProcedure = function(res) -- 重新入网处理
     if res.DevAddr ~= "" then -- 是否查询到DevAddr，否则重新生成一个
+      -- 将字符串转成数组
+      -- _DevAddr = buffer:new(consts.DEVADDR_LEN)
+      -- _DevAddr = utiles.BufferFromHexString(_DevAddr, 1, res.DevAddr)
       _DevAddr = res.DevAddr
     else
       local tmpNetID = utiles.BufferSlice(_NetID, consts.NWKID_OFFSET + 1, consts.NWKID_OFFSET + consts.NWKID_LEN)
@@ -220,10 +228,12 @@ function handler(rxpk)
     end
     return _DevAddr
   end
+
   local initDeviceConf = function(deviceConf) -- mysql设备配置信息更新
     local query = {DevAddr = deviceConf.DevAddr}
     return DeviceConfig.UpdateItem(query, deviceConf)
   end
+
   local updateDevInfo = function(DevAddr)
     local RX1DRoffset = 4 -- TODO: RX1DRoffset值写死需确定
     local RX2DR = 0 -- TODO: RX2DR值写死需确定
@@ -236,7 +246,7 @@ function handler(rxpk)
     _acpt = genAcpt(joinReq, _DLSettings, _RxDelay) -- 得到粗打包的数据
 
     local deviceInfoUpd = {
-      -- 需要更新的内容 MySQLModels中
+      -- mysql需要更新的内容
       DevAddr = DevAddr,
       DevNonce = utiles.BufferToHexString(joinReq.DevNonce),
       AppNonce = utiles.BufferToHexString(_AppNonce),
@@ -245,15 +255,17 @@ function handler(rxpk)
     }
     -- _acpt.sKey = nil -- TODO:
     _DevAddr = DevAddr
-    _defaultConf.DevAddr = DevAddr -- DevAddr
+    _defaultConf.DevAddr = DevAddr
     _defaultConf.RX1DRoffset = RX1DRoffset
-    DeviceInfo.UpdateItem(appKeyQueryOpt, deviceInfoUpd) -- MySQL 设备信息更新
-    return initDeviceConf(_defaultConf) -- MySQL 设备配置信息更新
+    DeviceInfo.UpdateItem(appKeyQueryOpt, deviceInfoUpd) -- mysql设备信息更新
+    return initDeviceConf(_defaultConf) -- mysql设备配置信息更新
   end
+
   local returnAcptMsg = function()
     local acptPHY = joinAcptPHYPackager(_acpt)
     return acptPHY
   end
+
   -- main
   local res = readDevice(appKeyQueryOpt)
   if res == nil then

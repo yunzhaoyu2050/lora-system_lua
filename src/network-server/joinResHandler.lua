@@ -20,6 +20,20 @@ end
 
 -- 更新join请求设备路由信息
 local function updateJoinDeviceRouting(deviceStatus)
+
+  -- "time":"2013-03-31T16:21:17.528002Z",
+  -- "tmst":3512348611,
+  -- "chan":2,
+  -- "rfch":0,
+  -- "freq":866.349812,
+  -- "stat":1,
+  -- "modu":"LORA",
+  -- "datr":"SF7BW125",
+  -- "codr":"4/6",
+  -- "rssi":-35,
+  -- "lsnr":5.1,
+  -- "size":32,
+
   local freqPlanOffset
 
   local function getDatr(datr, RX1DROFFSET)
@@ -77,6 +91,12 @@ local function updateJoinDeviceRouting(deviceStatus)
       RX1DRoffset = res.RX1DRoffset,
       RX1Delay = res.RX1Delay
     }
+    if res.ADR == nil then
+      devInfo.ADR = false
+    end
+    if res.RX1Delay == nil then
+      devInfo.RX1Delay = 0
+    end
 
     local query = {
       DevAddr = updateOpts.DevAddr
@@ -109,7 +129,7 @@ function handler(convertedData)
   --   _this.DeviceStatus.createItem(convertedData),
   --   _this.updateJoinDeviceRouting(convertedData),
   -- ]);
-  return updateJoinDeviceRouting(convertedData)
+  return updateJoinDeviceRouting(convertedData) -- 网关与服务器之间的数据
 end
 
 -- join request 上行数据处理

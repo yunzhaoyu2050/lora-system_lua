@@ -5,6 +5,7 @@ local consts = require("../lora-lib/constants/constants.lua")
 local serverHandle = require("../network-server/server.lua")
 
 -- 上传至server模块数据
+-- @return retStat:网关状态处理后的数据 retRxpk:rxpk处理后的数据
 function uploadPushData(pushData)
   local msgHeader = {
     version = pushData.origin.version,

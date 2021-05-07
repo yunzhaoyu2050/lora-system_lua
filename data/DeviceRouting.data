@@ -1,1 +1,1 @@
-{"00":{"tmst":"","DevAddr":"","imme":"","gatewayId":"","powe":"","ipol":"","rfch":"","datr":"","freq":"","modu":"","codr":""}}
+{"00":{"tmst":"","DevAddr":"","powe":"","gatewayId":"","imme":false,"ipol":false,"rfch":"","datr":"","freq":"","modu":"","codr":""}}

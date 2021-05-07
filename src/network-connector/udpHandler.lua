@@ -24,16 +24,20 @@ function parser(data)
     p("Invalid length of udp data, greater than ${consts.UDP_DATA_BASIC_LENGTH - 1} bytes is mandatory")
     return nil
   end
+
   local recvData = buffer:new(data)
+
   local udpJSON = {
     version = recvData:readUInt8(consts.UDP_VERSION_OFFSET + 1),
     token = utiles.BufferToHexString(recvData, consts.UDP_TOKEN_OFFSET + 1, consts.UDP_IDENTIFIER_OFFSET),
     identifier = recvData:readUInt8(consts.UDP_IDENTIFIER_OFFSET + 1)
   }
+
   if consts.UDP_VERSION_LIST[udpJSON.version] == nil then
     p("Bad UDP version number!")
     return nil
   end
+
   local identifier = udpJSON.identifier
   if identifier == consts.UDP_ID_PUSH_DATA then
     if #data <= consts.PUSH_DATA_BASIC_LENGTH then
@@ -44,16 +48,23 @@ function parser(data)
     udpJSON.pushData = recvData:toString(consts.UDP_JSON_OBJ_OFFSET + 1)
     udpJSON.DataType = "PUSH_DATA"
   elseif identifier == consts.UDP_ID_PULL_DATA then
+    -- 当前不处理推送的数据
     if #data ~= consts.PULL_DATA_LENGTH then
       p("Invalid length of pull data, ${consts.PULL_DATA_LENGTH} bytes is mandatory")
       return nil
     end
-    udpJSON.gatewayId = recvData:readUInt32BE(consts.UDP_GW_ID_OFFSET + 1)
+    udpJSON.gatewayId = utiles.BufferToHexString(recvData, consts.UDP_GW_ID_OFFSET + 1, consts.UDP_JSON_OBJ_OFFSET)
     udpJSON.DataType = "PULL_DATA"
+
+    -- p("Currently only processing push data. ", udpJSON)
+    -- return nil -- TODO: 当前不测试推送的数据
   elseif identifier == consts.UDP_ID_TX_ACK then
-    udpJSON.gatewayId = recvData:readUInt32BE(consts.UDP_GW_ID_OFFSET + 1)
+    udpJSON.gatewayId = utiles.BufferToHexString(recvData, consts.UDP_GW_ID_OFFSET + 1, consts.UDP_JSON_OBJ_OFFSET)
     udpJSON.txAckData = txAckParser(recvData:toString(consts.UDP_TX_ACK_PAYLOAD_OFFSET + 1))
     udpJSON.DataType = "TX_ACK"
+
+    p("Currently only processing tx ack data. ", udpJSON)
+    return nil -- TODO: 当前不测试tx ack的数据
   else
     p("Invalid identifier, any of [0x00, 0x02, 0x05] is required")
     return nil
@@ -62,7 +73,7 @@ function parser(data)
 end
 
 -- 下行处理打包数据
-local function packager(requiredFields)
+function packager(requiredFields)
   if requiredFields == nil then
     p("function <packager>, requiredFields param is nil")
     return nil
@@ -72,6 +83,7 @@ local function packager(requiredFields)
   data:writeUInt8(consts.UDP_VERSION_OFFSET + 1, requiredFields.version)
   utiles.BufferFromHexString(data, consts.UDP_TOKEN_OFFSET + 1, requiredFields.token)
   data:writeUInt8(consts.UDP_IDENTIFIER_OFFSET + 1, requiredFields.identifier)
+
   if requiredFields.identifier == consts.UDP_ID_PUSH_ACK then
     -- break
   elseif requiredFields.identifier == consts.UDP_ID_PULL_ACK then
@@ -89,7 +101,8 @@ local function packager(requiredFields)
       txpk.dstID = requiredFields.dstID
     end
     requiredFields.payload = json.stringify(txpk)
-    data:write(
+    utiles.BufferWrite(
+      data,
       consts.UDP_VERSION_OFFSET + 1 + consts.UDP_TOKEN_OFFSET + 1 + consts.UDP_IDENTIFIER_OFFSET + 1,
       requiredFields.payload,
       #requiredFields.payload
@@ -211,5 +224,6 @@ end
 return {
   parser = parser,
   ACK = ACK,
-  pushDataParser = pushDataParser
+  pushDataParser = pushDataParser,
+  packager = packager
 }

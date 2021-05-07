@@ -65,18 +65,6 @@ function rxInfoConverter(uplinkDataJson)
   rfPacketObject.DevAddr = uplinkDataJson.rxpk.data.MACPayload.FHDR.DevAddr
   return rfPacketObject
 end
--- 节点数据转换
-function joinRfConverter(joinDataJson)
-  local rfPacketObject = {}
-  for k, v in pairs(joinDataJson.rxpk) do
-    if k ~= "data" and k ~= "raw" then
-      rfPacketObject[k] = v
-    end
-  end
-  rfPacketObject.gatewayId = joinDataJson.gatewayId
-  rfPacketObject.DevAddr = joinDataJson.rxpk.data.DevAddr
-  return rfPacketObject
-end
 
 function appDataConverter(uplinkDataJson)
   local appDataObject = uplinkDataJson.rxpk.data
@@ -102,24 +90,23 @@ function appDataConverter(uplinkDataJson)
   return nil
 end
 
--- 上行数据处理
+-- 上行数据处理单元
+-- @return 状态, 处理后的数据
 function uplinkDataHandler(jsonData)
   local ret = nil
   local uplinkDataJson = jsonData
   local uplinkDataId = jsonData.identifier
   if uplinkDataId == consts.UDP_ID_PUSH_DATA then
-    -- Recive PUSH data
-    if uplinkDataJson.rxpk ~= nil then
+    if uplinkDataJson.rxpk ~= nil then -- Recive PUSH data
       -- Recive PUSH data from Node
       if uplinkDataJson.rxpk.data == nil then
         p('Uplink Json has no "data" in rxpk')
-        return -2
+        return "other", nil
       end
 
       local messageType = uplinkDataJson.rxpk.data.MHDR.MType
 
-      if messageType == consts.UNCONFIRMED_DATA_UP or messageType == consts.CONFIRMED_DATA_UP then
-        -- Application message
+      if messageType == consts.UNCONFIRMED_DATA_UP or messageType == consts.CONFIRMED_DATA_UP then -- Application message
         ret = appDataConverter(uplinkDataJson)
         if ret ~= nil then
           p("Receive repeated app data message")
@@ -127,19 +114,15 @@ function uplinkDataHandler(jsonData)
         end
       end
 
-      if messageType == consts.JS_MSG_TYPE.request then
+      if messageType == consts.JS_MSG_TYPE.request then -- Join request message
         p("Receive repeated join request message")
-        -- Join request message
         ret = joinResHandler.joinRequestHandle(uplinkDataJson) -- 把业务数据推送至join-server模块
         if ret == nil then
-          return -6
+          return "other", nil
         end
-        p("Downlink message process")
-        ret = joinAcceptHandler(ret) -- join-accept消息下行处理
-        return ret -- 把数据推送至network-connector模块
+        return "JoinPubToServer", ret -- 把数据推送至network-connector模块
       end
-      
-    elseif uplinkDataJson.stat ~= nil then
+    elseif uplinkDataJson.stat ~= nil then -- Recive Stat data
       -- });
       -- // });
       -- Recive PUSH data from Gateway
@@ -155,26 +138,26 @@ function uplinkDataHandler(jsonData)
       if resuserID then
         -- local collectionName = consts.MONGO_USERCOLLECTION_PREFIX + resuserID
         p("recv gateway stat data", uplinkDataJson)
-        return 0
+        return "other", nil
       else
         p("No UserID in Reids about the gateway")
-        return -4
+        return "other", nil
       end
     else
       p('Error key value of received JSON (NO "rxpk" or "stat")')
-      return -2
+      return "other", nil
     end
   elseif uplinkDataId == consts.UDP_ID_PULL_DATA then
     -- TODO:
     p("Recive UDP Pull Data")
-    return 0
+    return "other", nil
   elseif uplinkDataId == consts.UDP_ID_TX_ACK then
     -- TODO:
     p("Recive UDP TX_ACK")
-    return 0
+    return "other", nil
   else
     p("Error UDP package identifier")
-    return -3
+    return "other", nil
   end
 end
 
@@ -264,28 +247,35 @@ end
 --   return BluebirdPromise.resolve(outputObject);
 -- };
 
--- join-accept消息下行处理
-function joinAcceptHandler(joinAcceptJson)
-  local joinAcceptObj = joinAcceptJson
-  local joinRfData = joinRfConverter(joinAcceptObj)
-  local res = joinResHandler.handler(joinRfData) -- 下行数据统计 数据库更新
-  return downlinkDataHandler.joinAcceptDownlink(joinAcceptObj, joinAcceptConverter)
+local function joinRfConverter(joinDataJson) -- 取出rf层数据信息
+  local rfPacketObject = {}
+  for k, v in pairs(joinDataJson.rxpk) do
+    if k ~= "data" and k ~= "raw" then
+      rfPacketObject[k] = v
+    end
+  end
+  rfPacketObject.gatewayId = joinDataJson.gatewayId
+  rfPacketObject.DevAddr = joinDataJson.rxpk.data.DevAddr
+  return rfPacketObject
 end
 
 -- join-accept消息下行数据打包
-function joinAcceptConverter(rfJson, joinReqJson)
+local function joinAcceptConverter(rfJson, joinReqJson)
   local outputObject = {}
   outputObject.version = joinReqJson.version
-  outputObject.token = lcrypto.randomBytes(consts.UDP_TOKEN_LEN)
-  outputObject.identifier = buffer:new(consts.UDP_IDENTIFIER_LEN)
-  outputObject.identifier:writeUInt8(1, consts.UDP_ID_PULL_RESP)
+  outputObject.token = crypto.rand.bytes(consts.UDP_TOKEN_LEN)
+  p("token:", crypto.hex(outputObject.token))
+  outputObject.token = crypto.hex(outputObject.token)
+  -- outputObject.identifier = buffer:new(consts.UDP_IDENTIFIER_LEN)
+  -- outputObject.identifier:writeUInt8(1, consts.UDP_ID_PULL_RESP) -- UDP_ID_PULL_RESP
+  outputObject.identifier = consts.UDP_ID_PULL_RESP -- UDP_ID_PULL_RESP
   outputObject.gatewayId = rfJson.gatewayId
   local generateTxpkJson = function()
     return {
       imme = rfJson.imme,
       tmst = rfJson.tmst,
       freq = rfJson.freq,
-      rfch = rfJson.rfch, -- ?
+      rfch = rfJson.rfch,
       powe = rfJson.powe,
       datr = rfJson.datr,
       modu = rfJson.modu,
@@ -296,6 +286,15 @@ function joinAcceptConverter(rfJson, joinReqJson)
   end
   outputObject.txpk = generateTxpkJson()
   return outputObject
+end
+
+-- join-accept消息下行数据处理单元
+function joinAcceptHandler(joinAcceptJson)
+  local joinAcceptObj = joinAcceptJson
+  local joinRfData = joinRfConverter(joinAcceptObj) -- 网关与服务器之间的通讯
+  local res = joinResHandler.handler(joinRfData) -- 下行数据统计 数据库更新
+  res = downlinkDataHandler.joinAcceptDownlink(joinAcceptObj, joinAcceptConverter)
+  return "other", res
 end
 
 -- DataConverter.prototype.applicationAcceptHandler = function (applicationAcceptJson) {

@@ -1,6 +1,6 @@
 #!/bin/bash
 # start run
-if [ $# -eq 0 ] || [ "$@" == "" ]; then
+if [ $# -eq 0 ]; then # [ $# -eq 0 ] || [ "$@" == "" ]
     echo usage: ./run test/test.lua test, argc1: lua path, argc2: test mode
     exit -1
 fi

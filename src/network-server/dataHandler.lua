@@ -16,26 +16,34 @@ function process(data)
     p("data.data is nil", data)
     return nil
   end
-  local ret = nil 
-  ret = utiles.switch(data.type) {
-    ["ConnectorPubToServer"] = function()
-      -- Network Connector --> Network Server
-      return DataConverter.uplinkDataHandler(data.data)
-    end,
-    ["ControllerPubToServer"] = function()
-      -- Control Server --> Network Server
-    end,
-    ["JoinPubToServer"] = function()
-      -- Join Server --> Network Server
-      return DataConverter.joinAcceptHandler(data.data)
-    end,
-    ["AppPubToServer"] = function()
-      -- Application Server ---> Network Server
-    end,
-    [utiles.Default] = function()
-      p("data.type is error", data.type)
+  local ret = nil
+  local retIndex = data.type
+  local retData = data.data
+  while true do
+    retIndex, retData =
+      utiles.switch(retIndex) {
+      ["ConnectorPubToServer"] = function()
+        return DataConverter.uplinkDataHandler(retData) -- Network Connector --> Network Server
+      end,
+      ["ControllerPubToServer"] = function()
+        -- Control Server --> Network Server
+      end,
+      ["JoinPubToServer"] = function()
+        return DataConverter.joinAcceptHandler(retData) -- Join Server --> Network Server
+      end,
+      ["AppPubToServer"] = function()
+        -- Application Server ---> Network Server
+      end,
+      [utiles.Default] = function()
+        p("data.type is error", retData)
+      end
+    }
+    p("retIndex, retData:", retIndex, retData)
+    if retData == nil or retIndex == "other" then
+      break
     end
-  }
+  end
+  ret = retData
   return ret
 end
 return {

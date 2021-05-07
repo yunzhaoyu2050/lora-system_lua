@@ -1,5 +1,20 @@
 {
-  "570da34725f3d574": {
+  "0000000000000000": {
+    "AppNonce": "313233",
+    "DevAddr": "00516a59",
+    "NwkSKey": "38e8d55fd63f6303296897cb91f53092", // 包含十六进制数字的字符串
+    "ProtocolVersion": "1.0.2",
+    "AppKey": "3db14a3cd604f6868fc7f34a3d1818bc", // 包含十六进制数字的字符串
+    "activationMode": "OTAA",
+    "DevNonce": "d4b4",
+    "DevEUI": "0000000000000000", // 包含十六进制数字的字符串
+    "AppSKey": "c36f1e0c23d77276ed3de46dc1f7e756", // 包含十六进制数字的字符串
+    "FCntUp": "",
+    "NFCntDown": "",
+    "AFCntDown": "",
+    "AppEUI": "37aa4f9030fda82a" // 包含十六进制数字的字符串
+  },
+  "570da34725f3d574": { // 模拟测试节点
     "AppNonce": "313233",
     "DevAddr": "00516a59",
     "NwkSKey": "38e8d55fd63f6303296897cb91f53092",
@@ -13,6 +28,36 @@
     "NFCntDown": "",
     "AFCntDown": "",
     "AppEUI": "37aa4f9030fda82a"
+  },
+  "363437470e2c0029": { // 实机测试节点1
+    "AppNonce": "313233",
+    "DevAddr": "00516a59",
+    "NwkSKey": "38e8d55fd63f6303296897cb91f53092",
+    "ProtocolVersion": "1.0.2",
+    "AppKey": "2b7e151628aed2a6abf7158809cf4f3c",
+    "activationMode": "OTAA",
+    "DevNonce": "d4b4",
+    "DevEUI": "363437470e2c0029",
+    "AppSKey": "c36f1e0c23d77276ed3de46dc1f7e756",
+    "FCntUp": "",
+    "NFCntDown": "",
+    "AFCntDown": "",
+    "AppEUI": "0011223344556677"
+  },
+  "3032383163377d0d": { // 实机测试节点1
+    "AppNonce": "313233",
+    "DevAddr": "00516a59",
+    "NwkSKey": "38e8d55fd63f6303296897cb91f53092",
+    "ProtocolVersion": "1.0.2",
+    "AppKey": "2b7e151628aed2a6abf7158809cf4f3c",
+    "activationMode": "OTAA",
+    "DevNonce": "d4b4",
+    "DevEUI": "3032383163377d0d",
+    "AppSKey": "c36f1e0c23d77276ed3de46dc1f7e756",
+    "FCntUp": "",
+    "NFCntDown": "",
+    "AFCntDown": "",
+    "AppEUI": "0011223344556677"
   },
   "4a9e0384c50c035b": {
     "AppNonce": "",
