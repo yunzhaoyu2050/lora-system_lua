@@ -5,6 +5,7 @@ local utiles = require("../../utiles/utiles.lua")
 local aesCmac = require("../../deps/node-aes-cmac-lua/lib/aes-cmac.lua").aesCmac
 local crypto = require("../../deps/lua-openssl/lib/crypto.lua")
 
+
 local function MHDRPackager(mhdr)
   local MHDR = buffer:new(consts.MHDR_LEN)
   utiles.bitwiseAssigner(MHDR, consts.MTYPE_OFFSET, consts.MTYPE_LEN, mhdr.MType)
@@ -13,6 +14,7 @@ local function MHDRPackager(mhdr)
 end
 
 local function AcptEncryption(acpt, key)
+  p("key:", key)
   local newKey = buffer:new(string.len(key)) -- mysql存储的是hex字符串需要转换成dec的buffer
   utiles.BufferFill(newKey, 0, 1, newKey.length)
   if type(key) == "string" then
@@ -21,15 +23,23 @@ local function AcptEncryption(acpt, key)
     newKey = key
   end
   newKey = utiles.BufferSlice(newKey, 1, 16)
+  p("newKey:", utiles.BufferToHexString(newKey))
 
+  -- 注意:网络服务器在 ECB 模式下使用一个 AES 解密操作去对 join-accept 消息进行加
+  -- 密， 因此终端就可以使用一个 AES 加密操作去对消息进行解密。 这样终端只需要去实现
+  -- AES 加密而不是 AES 解密。
   local iv = ""
   -- consts.ENCRYPTION_ALGO
-  local cipher = crypto.encrypt("aes128", acpt:toString(), newKey:toString(), iv)
-  -- cipher.setAutoPadding(false)
+  local cipher = crypto.encrypt("aes128", acpt:toString(), newKey:toString(), iv) -- 使用解密生成！！！ TODO:当前使用加密操作
+
+  p(acpt:toString())
+  -- local cipher = crypto.decrypt("aes128", acpt:toString(), newKey:toString(), iv) -- 使用解密生成！！！
+  
   cipher = crypto.hex(cipher)
+  p("cipher:", cipher)
   local ret = buffer:new(string.len(cipher) / 2)
   utiles.BufferFromHexString(ret, 1, cipher)
-  ret = utiles.BufferSlice(ret, 1, 16)
+  -- ret = utiles.BufferSlice(ret, 1, string.len(key))
   return ret
 end
 
@@ -38,15 +48,40 @@ function packager(phyPayloadJSON, key)
   phyPayloadJSON.MHDR = MHDRPackager(phyPayloadJSON.MHDR)
   local MACPayloadJSON = phyPayloadJSON.MACPayload -- macpayload层数据
 
-  local MIC = joinMICCalculator(phyPayloadJSON, key, "accept") -- 计算mic值aes_cmac
+  local newPhyPayloadJSON = {}
+  newPhyPayloadJSON.MHDR = buffer:new(phyPayloadJSON.MHDR.length)
+  utiles.BufferCopy(newPhyPayloadJSON.MHDR, 1, phyPayloadJSON.MHDR)
+  newPhyPayloadJSON.MACPayload = {}
+  newPhyPayloadJSON.MACPayload.AppNonce = buffer:new(phyPayloadJSON.MACPayload.AppNonce.length)
+  utiles.BufferCopy(newPhyPayloadJSON.MACPayload.AppNonce, 1, phyPayloadJSON.MACPayload.AppNonce)
+  newPhyPayloadJSON.MACPayload.NetID = buffer:new(phyPayloadJSON.MACPayload.NetID.length)
+  utiles.BufferCopy(newPhyPayloadJSON.MACPayload.NetID, 1, phyPayloadJSON.MACPayload.NetID)
+  newPhyPayloadJSON.MACPayload.DevAddr = phyPayloadJSON.MACPayload.DevAddr
+  -- utiles.BufferCopy(newPhyPayloadJSON.MACPayload.DevAddr, 1, phyPayloadJSON.MACPayload.DevAddr)
+  newPhyPayloadJSON.MACPayload.DLSettings = buffer:new(phyPayloadJSON.MACPayload.DLSettings.length)
+  utiles.BufferCopy(newPhyPayloadJSON.MACPayload.DLSettings, 1, phyPayloadJSON.MACPayload.DLSettings)
+  newPhyPayloadJSON.MACPayload.RxDelay = buffer:new(phyPayloadJSON.MACPayload.RxDelay.length)
+  utiles.BufferCopy(newPhyPayloadJSON.MACPayload.RxDelay, 1, phyPayloadJSON.MACPayload.RxDelay)
+
+  local MIC = joinMICCalculator(newPhyPayloadJSON, key, "accept") -- 计算mic值aes_cmac
+  utiles.printBuf(MIC)
+  p("join accept message mic value:", utiles.BufferToHexString(MIC))
 
   -- macpayload数据打包
-  local macpayload = utiles.BufferConcat(MACPayloadJSON.AppNonce, MACPayloadJSON.NetID)
+  p("macpayload:")
+  local macpayload = utiles.BufferConcat(utiles.reverse(MACPayloadJSON.AppNonce), utiles.reverse(MACPayloadJSON.NetID))
+  utiles.printBuf(macpayload)
+
   local _devAddr = buffer:new(consts.DEVADDR_LEN)
-  local _devAddr = utiles.BufferFromHexString(_devAddr, 1, MACPayloadJSON.DevAddr)
-  macpayload = utiles.BufferConcat(macpayload, _devAddr)
-  macpayload = utiles.BufferConcat(macpayload, MACPayloadJSON.DLSettings)
-  macpayload = utiles.BufferConcat(macpayload, MACPayloadJSON.RxDelay)
+  _devAddr = utiles.BufferFromHexString(_devAddr, 1, MACPayloadJSON.DevAddr)
+  macpayload = utiles.BufferConcat(macpayload, utiles.reverse(_devAddr))
+  utiles.printBuf(macpayload)
+
+  macpayload = utiles.BufferConcat(macpayload, utiles.reverse(MACPayloadJSON.DLSettings))
+  utiles.printBuf(macpayload)
+
+  macpayload = utiles.BufferConcat(macpayload, utiles.reverse(MACPayloadJSON.RxDelay))
+  utiles.printBuf(macpayload)
 
   if MACPayloadJSON.CFList ~= nil then
     macpayload = utiles.BufferConcat(macpayload, MACPayloadJSON.CFList)
@@ -64,10 +99,13 @@ function packager(phyPayloadJSON, key)
   -- 样的设置中， 应用提供商必须支持网络运营商处理终端的加网以及为终端生成
   -- NwkSkey。 同时应用提供商向网络运营商承诺， 它将承担终端所产生的任何流量费用并
   -- 且保持用于保护应用数据的AppSKey的完全控制权。
+  p("no macpayload:", utiles.BufferToHexString(macpayload))
   local encmacpayload = AcptEncryption(macpayload, key) -- ?
+  p("encmacpayload:", utiles.BufferToHexString(encmacpayload))
 
   local phypayload = utiles.BufferConcat(phyPayloadJSON.MHDR, encmacpayload)
   -- 生成打包好的数据
+  -- p("phypayload hex:", )
   return phypayload
 end
 
@@ -102,16 +140,32 @@ function joinMICCalculator(requiredFields, key, typeInput)
     -- 表(CFList)。 CFList 的选择是由区域指定的， 在 LoRaWAN 地区参数文件[PARAMS]中进行
     -- 定义。
     -- consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + consts.DEVADDR_LEN + consts.DLSETTINGS_LEN + consts.RXDELAY_LEN -- consts.BLOCK_LEN_ACPT_MIC_BASE
-    micPayload = buffer:new(consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + consts.DEVADDR_LEN + consts.DLSETTINGS_LEN + consts.RXDELAY_LEN) -- Buffer.concat(bufferArray, consts.BLOCK_LEN_ACPT_MIC_BASE);
+    p("micPayload:")
+    -- utiles.printBuf(requiredFields.MACPayload.AppNonce)
+
+    micPayload =
+      buffer:new(
+      consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + consts.DEVADDR_LEN + consts.DLSETTINGS_LEN +
+        consts.RXDELAY_LEN
+    ) -- Buffer.concat(bufferArray, consts.BLOCK_LEN_ACPT_MIC_BASE);
     utiles.BufferFill(micPayload, 0, 1, micPayload.length)
     micPayload:writeUInt8(1, requiredFields.MHDR:readUInt8(1)) -- requiredFields.MHDR 是buffer类型
-    utiles.BufferWrite(micPayload, consts.MHDR_LEN + 1, utiles.reverse(requiredFields.MACPayload.AppNonce), consts.APPNONCE_LEN)
+    utiles.printBuf(micPayload)
+    utiles.BufferWrite(
+      micPayload,
+      consts.MHDR_LEN + 1,
+      utiles.reverse(requiredFields.MACPayload.AppNonce),
+      consts.APPNONCE_LEN
+    )
+    utiles.printBuf(micPayload)
     utiles.BufferWrite(
       micPayload,
       consts.MHDR_LEN + consts.APPNONCE_LEN + 1,
       utiles.reverse(requiredFields.MACPayload.NetID),
       consts.NETID_LEN
     )
+    -- utiles.printBuf(requiredFields.MACPayload.NetID)
+    utiles.printBuf(micPayload)
     local _devAddr = buffer:new(consts.DEVADDR_LEN)
     local _devAddr = utiles.BufferFromHexString(_devAddr, 1, requiredFields.MACPayload.DevAddr)
     utiles.BufferWrite(
@@ -120,18 +174,21 @@ function joinMICCalculator(requiredFields, key, typeInput)
       utiles.reverse(_devAddr), -- requiredFields.MACPayload.DevAddr 是string类型
       consts.DEVADDR_LEN
     )
+    utiles.printBuf(micPayload)
     utiles.BufferWrite(
       micPayload,
       consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + consts.DEVADDR_LEN + 1,
       utiles.reverse(requiredFields.MACPayload.DLSettings),
       consts.DLSETTINGS_LEN
     )
+    utiles.printBuf(micPayload)
     utiles.BufferWrite(
       micPayload,
       consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + consts.DEVADDR_LEN + consts.DLSETTINGS_LEN + 1,
       utiles.reverse(requiredFields.MACPayload.RxDelay),
       consts.RXDELAY_LEN
     )
+    utiles.printBuf(micPayload)
   end
   local keyLen = 0
   if type(key) == "string" then

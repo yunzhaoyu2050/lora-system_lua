@@ -85,6 +85,7 @@ function packager(phyPayloadJSON)
   if ret ~= nil then
     return ret
   end
+  -- TODO:
   -- 以下是对于FRMPayload的负载情况下的
   -- //Encryption 加密
   local direction = buffer:new(consts.DIRECTION_LEN)

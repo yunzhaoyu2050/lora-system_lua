@@ -1,6 +1,7 @@
 -- @info 服务器配置
 local fs = require("fs")
 local json = require("json")
+
 local _cfi = {
   path = {
     data = nil
@@ -8,8 +9,13 @@ local _cfi = {
   udp = {
     ip = nil,
     port = nil
+  },
+  loraWan = {
+    fcntCheckEnable = nil,
+    downlinkDataDelay = nil
   }
 }
+
 local function _setConfigFile(tcfg)
   if tcfg == nil then
     p("tcfg is nil")
@@ -18,8 +24,11 @@ local function _setConfigFile(tcfg)
   _cfi.path.data = tcfg.path.data or "data/"
   _cfi.udp.port = tcfg.udp.port or 12234
   _cfi.udp.ip = tcfg.udp.ip or "127.0.0.1"
+  _cfi.loraWan.fcntCheckEnable = tcfg.loraWan.fcntCheckEnable or true
+  _cfi.loraWan.downlinkDataDelay = tcfg.loraWan.downlinkDataDelay or 200
   return 0
 end
+
 -- 程序配置文件解析
 -- @param serCfgPath 程序配置文件路径
 -- @return 成功：0 失败：-1
@@ -40,22 +49,37 @@ local function _serverCfgParse(serCfgPath)
   end
   return 0
 end
+
+function _init()
+  local serCfgPath = "./config/config.json" -- 配置文件固定路径为程序执行路径下的config/文件夹中
+  return _serverCfgParse(serCfgPath)
+end
+
 function _getDataPath()
   return _cfi.path.data
 end
+
 function _getUdpPort()
   return _cfi.udp.port
 end
+
 function _getUdpIp()
   return _cfi.udp.ip
 end
-function _init()
-  local serCfgPath = "./config/config.json"
-  return _serverCfgParse(serCfgPath)
+
+function _getFcntCheckEnable()
+  return _cfi.loraWan.fcntCheckEnable
 end
+
+function _getDownlinkDataDelay()
+  return _cfi.loraWan.downlinkDataDelay
+end
+
 return {
   Init = _init,
   GetDataPath = _getDataPath,
   GetUdpPort = _getUdpPort,
-  GetUdpIp = _getUdpIp
+  GetUdpIp = _getUdpIp,
+  GetFcntCheckEnable = _getFcntCheckEnable,
+  GetDownlinkDataDelay = _getDownlinkDataDelay
 }

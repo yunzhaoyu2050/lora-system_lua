@@ -5,6 +5,7 @@ local gatewayInfoRedis = require("../lora-lib/models/RedisModels/GatewayInfo.lua
 local consts = require("../lora-lib/constants/constants.lua")
 local phyPackager = require("./phyPackager.lua")
 local basexx = require("../../deps/basexx/lib/basexx.lua")
+local utiles = require("../../utiles/utiles.lua")
 
 -- connector模块任务
 
@@ -80,12 +81,35 @@ function DownlinkTask(message)
   local PHYPayload = phyPackager.packager(message.txpk.data) -- phy层打包
   if PHYPayload then
     message.txpk.size = PHYPayload.length
+    -- p("PHYPayload:",PHYPayload)
+    -- p("PHYPayload:toString():", PHYPayload:toString())
+    p("PHYPayload:toHexString():", utiles.BufferToHexString(PHYPayload))
     message.txpk.data = basexx.to_base64(PHYPayload:toString()) -- 转换成base64格式 -- consts.DATA_ENCODING
+    -- base64Encode()
+    -- p(basexx.from_base64(message.txpk.data))
     local udpDlData = udpHandler.packager(message) -- udp层打包
     local udpInfo = gatewayInfoRedis.Read(message.gatewayId) -- 取得网关信息
     if udpInfo then
-      udpInfo.port = udpInfo.pullPort
-      return udp.Send(udpDlData, udpInfo, message.gatewayId)
+      local cliUdpInfo = {}
+      if message.identifier == consts.UDP_ID_PULL_DATA then -- TODO: 修正 PULL_RESP通过* pull_port *发送到网关。 因此，网关必须在可以接收任何PULL_RESP之前发送PULL_DATA。
+        cliUdpInfo.port = udpInfo.pullPort
+      else
+        cliUdpInfo.port = udpInfo.pushPort
+      end
+
+      -- cliUdpInfo.port = udpInfo.pullPort
+
+      cliUdpInfo.ip = udpInfo.address
+      p(
+        "udp send message to gateway, udp-ip:",
+        cliUdpInfo.ip,
+        "udp-port:",
+        cliUdpInfo.port,
+        "message:<",
+        udpDlData,
+        ">end"
+      )
+      return udp.Send(udpDlData, cliUdpInfo)
     end
   end
 end

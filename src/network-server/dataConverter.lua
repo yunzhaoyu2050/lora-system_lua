@@ -1,23 +1,5 @@
--- 'use strict';
-
--- const _ = require('lodash');
--- const Ajv = require('ajv');
--- const ajv = new Ajv({ allErrors: true });
--- let uplinkMessageSchema = require('./schema/uplinkMessage.schema.json');
--- ajv.addSchema(uplinkMessageSchema, 'uplinkMessageSchema');
--- const BluebirdPromise = require('bluebird');
--- const GatewayStatHandler = require('./gatewayStatHandler');
--- const DeDuplication = require('./deDuplication');
--- const AppDataHandler = require('./appDataHandler');
 local downlinkDataHandler = require("./downlinkDataHandler.lua")
 local joinResHandler = require("./joinResHandler.lua")
--- const crypto = require('crypto');
--- const loraLib = require('../lora-lib');
--- const { consts, ERROR, utils } = loraLib;
--- const moment = require('moment');
--- const mongoose = require('mongoose');
--- const mongoSavedSchema = require('./schema/mongoSavedMsg');
--- local mqHandle = require("../src/common/message_queue.lua")
 local consts = require("../lora-lib/constants/constants.lua")
 -- local joinResHandler = require("./joinResHandler.lua")
 local gatewayStatConverter = require("./gatewayStatHandler.lua")
@@ -27,6 +9,7 @@ local connector = require("../network-connector/connector.lua")
 local buffer = require("buffer").Buffer
 local crypto = require("../../deps/lua-openssl/lib/crypto.lua")
 local lcrypto = require("../../deps/luvit-github/deps/tls/lcrypto.lua")
+-- local appDataHandler = require("./appDataHandler.lua")
 
 -- function DataConverter(mqClient, redisConn, mysqlConn, log) {
 --   this.deDuplication = new DeDuplication(redisConn.DeDuplication);
@@ -66,7 +49,8 @@ function rxInfoConverter(uplinkDataJson)
   return rfPacketObject
 end
 
-function appDataConverter(uplinkDataJson)
+-- app数据对象
+local function appDataConverter(uplinkDataJson)
   local appDataObject = uplinkDataJson.rxpk.data
   appDataObject.version = uplinkDataJson.version
   if uplinkDataJson.srcID then
@@ -76,7 +60,7 @@ function appDataConverter(uplinkDataJson)
   end
   local appFRMPayloadBuf = appDataObject.MACPayload.FRMPayload
   if appFRMPayloadBuf then
-    local ret = DeviceInfoRedis.read(appDataObject.MACPayload.FHDR.DevAddr, {"FCntUp", "AppEUI"})
+    local res = DeviceInfoRedis.readItem({DevAddr = appDataObject.MACPayload.FHDR.DevAddr}, {"FCntUp", "AppEUI"})
     if res.FCntUp then
       appDataObject.FCntUp = res.FCntUp
       appDataObject.AppEUI = res.AppEUI
@@ -107,11 +91,12 @@ function uplinkDataHandler(jsonData)
       local messageType = uplinkDataJson.rxpk.data.MHDR.MType
 
       if messageType == consts.UNCONFIRMED_DATA_UP or messageType == consts.CONFIRMED_DATA_UP then -- Application message
-        ret = appDataConverter(uplinkDataJson)
-        if ret ~= nil then
+        local appObj = appDataConverter(uplinkDataJson)
+        if appObj ~= nil then
           p("Receive repeated app data message")
-          return _this.appDataHandler.handle(rxInfoArr, appObj)
+          return appDataHandler.handle(rxInfoArr, appObj)
         end
+        return "other", nil
       end
 
       if messageType == consts.JS_MSG_TYPE.request then -- Join request message
@@ -291,8 +276,8 @@ end
 -- join-accept消息下行数据处理单元
 function joinAcceptHandler(joinAcceptJson)
   local joinAcceptObj = joinAcceptJson
-  local joinRfData = joinRfConverter(joinAcceptObj) -- 网关与服务器之间的通讯
-  local res = joinResHandler.handler(joinRfData) -- 下行数据统计 数据库更新
+  local joinRfData = joinRfConverter(joinAcceptObj) -- 网关与服务器之间的通讯数据
+  local res = joinResHandler.handler(joinRfData) -- 下行数据统计数据库更新
   res = downlinkDataHandler.joinAcceptDownlink(joinAcceptObj, joinAcceptConverter)
   return "other", res
 end

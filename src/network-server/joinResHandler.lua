@@ -84,7 +84,8 @@ local function updateJoinDeviceRouting(deviceStatus)
       imme = false,
       ipol = false
     }
-
+    -- updateOpts.freq = 501.5 -- test TODO:
+    -- updateOpts.datr = "SF7BW125" -- test TODO:
     local devInfo = {
       frequencyPlan = res.frequencyPlan,
       ADR = res.ADR,

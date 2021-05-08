@@ -19,7 +19,7 @@ local function DLSettingsPackager(RX1DRoffset, RX2DR)
   -- DLsettings字段包含了下行配置:
   -- Bits       7   6:4         3:0
   -- DLsettings RFU RX1DRoffset RX2Datarate
-  local OptNeg = 1
+  local OptNeg = 0 -- TODO: 默认值为1
   local DLSettings = buffer:new(consts.DLSETTINGS_LEN)
   utiles.BufferFill(DLSettings, 0, 1, DLSettings.length)
   DLSettings = utiles.bitwiseAssigner(DLSettings, consts.OPTNEG_OFFSET, consts.OPTNEG_LEN, OptNeg)

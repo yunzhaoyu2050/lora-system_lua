@@ -48,6 +48,8 @@ function parser(data)
     udpJSON.pushData = recvData:toString(consts.UDP_JSON_OBJ_OFFSET + 1)
     udpJSON.DataType = "PUSH_DATA"
   elseif identifier == consts.UDP_ID_PULL_DATA then
+    -- p("Currently only processing push data. ", udpJSON)
+    -- return nil -- TODO: 当前不测试推送的数据
     -- 当前不处理推送的数据
     if #data ~= consts.PULL_DATA_LENGTH then
       p("Invalid length of pull data, ${consts.PULL_DATA_LENGTH} bytes is mandatory")
@@ -55,9 +57,6 @@ function parser(data)
     end
     udpJSON.gatewayId = utiles.BufferToHexString(recvData, consts.UDP_GW_ID_OFFSET + 1, consts.UDP_JSON_OBJ_OFFSET)
     udpJSON.DataType = "PULL_DATA"
-
-    -- p("Currently only processing push data. ", udpJSON)
-    -- return nil -- TODO: 当前不测试推送的数据
   elseif identifier == consts.UDP_ID_TX_ACK then
     udpJSON.gatewayId = utiles.BufferToHexString(recvData, consts.UDP_GW_ID_OFFSET + 1, consts.UDP_JSON_OBJ_OFFSET)
     udpJSON.txAckData = txAckParser(recvData:toString(consts.UDP_TX_ACK_PAYLOAD_OFFSET + 1))
@@ -83,7 +82,7 @@ function packager(requiredFields)
   data:writeUInt8(consts.UDP_VERSION_OFFSET + 1, requiredFields.version)
   utiles.BufferFromHexString(data, consts.UDP_TOKEN_OFFSET + 1, requiredFields.token)
   data:writeUInt8(consts.UDP_IDENTIFIER_OFFSET + 1, requiredFields.identifier)
-
+  -- utiles.printBuf(data)
   if requiredFields.identifier == consts.UDP_ID_PUSH_ACK then
     -- break
   elseif requiredFields.identifier == consts.UDP_ID_PULL_ACK then
@@ -93,6 +92,7 @@ function packager(requiredFields)
     --   requiredFields.gatewayId
     -- )
   elseif requiredFields.identifier == consts.UDP_ID_PULL_RESP then
+    -- p("requiredFields:", requiredFields, #requiredFields.payload)
     local txpk = {
       txpk = requiredFields.txpk
     }
@@ -101,20 +101,21 @@ function packager(requiredFields)
       txpk.dstID = requiredFields.dstID
     end
     requiredFields.payload = json.stringify(txpk)
-    utiles.BufferWrite(
-      data,
-      consts.UDP_VERSION_OFFSET + 1 + consts.UDP_TOKEN_OFFSET + 1 + consts.UDP_IDENTIFIER_OFFSET + 1,
-      requiredFields.payload,
-      #requiredFields.payload
-    )
+    local payloadBuf = buffer:new(#requiredFields.payload)
+    utiles.BufferWrite(payloadBuf, 1, requiredFields.payload, #requiredFields.payload) -- consts.UDP_VERSION_OFFSET + consts.UDP_TOKEN_OFFSET + consts.UDP_IDENTIFIER_OFFSET + 1
+    data = utiles.BufferConcat(data, payloadBuf)
   else
     p("Bad type of UDP identifier")
     return nil
   end
-  local tmp = {}
-  for i = 1, data.length do
-    tmp[i] = data[i]
-  end
+  -- utiles.printBuf(data)
+  -- local tmp = {}
+  -- for i = 1, data.length do
+  --   tmp[i] = data[i]
+  -- end
+  -- return tmp
+  local tmp = data:toString()
+  -- p(tmp)
   return tmp
 end
 
