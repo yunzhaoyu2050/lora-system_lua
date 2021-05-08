@@ -451,7 +451,7 @@ function DeviceInfo.UpdateItem(appoint, item)
             p("redis deviceInfo function <DeviceInfo.UpdateItem>, i is nil")
           end,
           [utiles.Default] = function()
-            p("redis deviceInfo function <DeviceInfo.UpdateItem>, item is other, add it.", i, v)
+            p("redis deviceInfo, item is other, add it.", i, v)
             DeviceInfo.hashTable[k][i] = v -- 不存在该条目需要将其新添加进去
           end
         }

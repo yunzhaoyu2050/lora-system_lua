@@ -22,7 +22,6 @@ function UplinkTask()
         p("function <udpHandler.parser> failed")
         return -1
       end
-      p("parser udpUlJSON: ", udpUlJSON)
       -- 2. 验证网关ID
       local ret = gatewayHandler.verifyGateway(udpUlJSON.gatewayId)
       if ret < 0 then
@@ -44,15 +43,15 @@ function UplinkTask()
       ret = udpHandler.ACK(udpUlJSON)
       if ret ~= nil then
         udp.Send(ret, udpInfo)
-        p("udp send message to gateway, udp-ip:", udpInfo.ip, "udp-port:", udpInfo.port, "message:<", ret, ">end")
+        p("udp send <ACK> to gateway, udp-ip:", udpInfo.ip, "udp-port:", udpInfo.port, "message:<", ret, ">end")
       end
       -- 5. pushData数据解析
       if udpUlJSON.pushData ~= nil then
-        -- pushData数据解析
         ret = udpHandler.pushDataParser(udpUlJSON)
         if ret ~= nil then
           local retStat, retRxpk = gatewayHandler.uploadPushData(ret)
           if retRxpk ~= nil then
+            p("recv from server module message...")
             for k, _ in pairs(retRxpk) do
               ret = DownlinkTask(retRxpk[k])
             end
@@ -77,26 +76,20 @@ function DownlinkTask(message)
     p("udpHandler is nil.")
     return -1
   end
-  p("-------------------------------------end--------------------------------------------")
-  local PHYPayload = phyPackager.packager(message.txpk.data) -- phy层打包
+  local PHYPayload = phyPackager.packager(message.txpk.data) -- phy层细打包
   if PHYPayload then
     message.txpk.size = PHYPayload.length
-    -- p("PHYPayload:",PHYPayload)
-    -- p("PHYPayload:toString():", PHYPayload:toString())
-    p("PHYPayload:toHexString():", utiles.BufferToHexString(PHYPayload))
     message.txpk.data = basexx.to_base64(PHYPayload:toString()) -- 转换成base64格式 -- consts.DATA_ENCODING
-    -- base64Encode()
-    -- p(basexx.from_base64(message.txpk.data))
     local udpDlData = udpHandler.packager(message) -- udp层打包
     local udpInfo = gatewayInfoRedis.Read(message.gatewayId) -- 取得网关信息
     if udpInfo then
+      
       local cliUdpInfo = {}
       if message.identifier == consts.UDP_ID_PULL_DATA then -- TODO: 修正 PULL_RESP通过* pull_port *发送到网关。 因此，网关必须在可以接收任何PULL_RESP之前发送PULL_DATA。
         cliUdpInfo.port = udpInfo.pullPort
       else
         cliUdpInfo.port = udpInfo.pushPort
       end
-
       -- cliUdpInfo.port = udpInfo.pullPort
 
       cliUdpInfo.ip = udpInfo.address
@@ -109,6 +102,7 @@ function DownlinkTask(message)
         udpDlData,
         ">end"
       )
+      p("-------------------------------------end--------------------------------------------")
       return udp.Send(udpDlData, cliUdpInfo)
     end
   end

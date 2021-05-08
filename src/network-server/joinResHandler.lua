@@ -103,12 +103,14 @@ local function updateJoinDeviceRouting(deviceStatus)
       DevAddr = updateOpts.DevAddr
     }
 
+    p("   update mysql device routing info:", updateOpts)
+
     local res = MySQLDeviceRouting.UpdateItem(query, updateOpts)
     if res < 0 then
       return -2
     end
     res = MySQLDeviceInfo.readItem(query, consts.DEVICEINFO_CACHE_ATTRIBUTES)
-    p("function <MySQLDeviceInfo.readItem>:", res)
+    -- p("function <MySQLDeviceInfo.readItem>:", res)
     for k, v in pairs(res) do
       devInfo[k] = v
     end
@@ -117,7 +119,7 @@ local function updateJoinDeviceRouting(deviceStatus)
       devInfo[k] = v
     end
     res = RedisDeviceInfo.UpdateItem({DevAddr = updateOpts.DevAddr}, devInfo)
-    p("function <RedisDeviceInfo.UpdateItem>:", res)
+    -- p("function <RedisDeviceInfo.UpdateItem>:", res)
     return res
   end
   p("DevAddr does not exist in DeviceConfig")
@@ -135,6 +137,7 @@ end
 
 -- join request 上行数据处理
 function joinRequestHandle(joinResArr)
+  p("server module _> join module, send join request message")
   return joinServer.handleMessage(joinResArr) -- 把joinRequest数据推送至join-server模块
 end
 

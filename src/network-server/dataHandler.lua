@@ -7,7 +7,7 @@ function process(data)
     p("data is nil")
     return nil
   end
-  p("Data handler started...")
+  p("server data handler start...")
   if data.type == nil or type(data.type) ~= "string" then
     p("data.type is nil", data)
     return nil
@@ -38,12 +38,13 @@ function process(data)
         p("data.type is error", retData)
       end
     }
-    p("retIndex, retData:", retIndex, retData)
+    p("retIndex, retData:", retIndex)
     if retData == nil or retIndex == "other" then
       break
     end
   end
   ret = retData
+  p("server module _> connector module, send message")
   return ret
 end
 return {

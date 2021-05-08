@@ -19,12 +19,14 @@ function uploadPushData(pushData)
     local stat = msgHeader
     stat.stat = pushData.stat
     retStat = serverHandle.Process({type = "ConnectorPubToServer", data = stat}) -- 把状态数据推送至network-server模块
+    p("connector module _> server module, send stat message")
   end
   if pushData.rxpk ~= nil then -- 业务数据
     for i, v in pairs(pushData.rxpk) do
       local rxpk = msgHeader
       rxpk.rxpk = pushData.rxpk[i]
       retRxpk[i] = serverHandle.Process({type = "ConnectorPubToServer", data = rxpk}) -- 把业务数据推送至network-server模块
+      p("connector module _> server module, send rxpk message")
     end
   end
   return retStat, retRxpk
@@ -41,6 +43,7 @@ function verifyGateway(gatewayId)
   if _GatewayInfoRedis.GetuserID(gatewayId) ~= nil then
     local tmp = _GatewayInfoMySQL.GetuserID(gatewayId)
     if tmp ~= nil then
+      p("gatewayId verify success")
       return _GatewayInfoRedis.UpdateuserID(gatewayId, tmp) -- 更新redis GatewayInfo
     else
       p("The received Gateway is not registered, the whole package is ignored, gatewayId:", gatewayId)

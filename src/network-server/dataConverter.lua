@@ -8,7 +8,7 @@ local DeviceInfoRedis = require("../lora-lib/models/RedisModels/DeviceInfo.lua")
 local connector = require("../network-connector/connector.lua")
 local buffer = require("buffer").Buffer
 local crypto = require("../../deps/lua-openssl/lib/crypto.lua")
-local lcrypto = require("../../deps/luvit-github/deps/tls/lcrypto.lua")
+-- local lcrypto = require("../../deps/luvit-github/deps/tls/lcrypto.lua")
 -- local appDataHandler = require("./appDataHandler.lua")
 
 -- function DataConverter(mqClient, redisConn, mysqlConn, log) {
@@ -91,20 +91,21 @@ function uplinkDataHandler(jsonData)
       local messageType = uplinkDataJson.rxpk.data.MHDR.MType
 
       if messageType == consts.UNCONFIRMED_DATA_UP or messageType == consts.CONFIRMED_DATA_UP then -- Application message
+        p("receive App data message")
         local appObj = appDataConverter(uplinkDataJson)
         if appObj ~= nil then
-          p("Receive repeated app data message")
           return appDataHandler.handle(rxInfoArr, appObj)
         end
         return "other", nil
       end
 
       if messageType == consts.JS_MSG_TYPE.request then -- Join request message
-        p("Receive repeated join request message")
+        p("receive Join request message")
         ret = joinResHandler.joinRequestHandle(uplinkDataJson) -- 把业务数据推送至join-server模块
         if ret == nil then
           return "other", nil
         end
+        p("join module _> server module, send join accept message")
         return "JoinPubToServer", ret -- 把数据推送至network-connector模块
       end
     elseif uplinkDataJson.stat ~= nil then -- Recive Stat data
@@ -122,7 +123,7 @@ function uplinkDataHandler(jsonData)
 
       if resuserID then
         -- local collectionName = consts.MONGO_USERCOLLECTION_PREFIX + resuserID
-        p("recv gateway stat data", uplinkDataJson)
+        -- p("recv gateway stat data", uplinkDataJson)
         return "other", nil
       else
         p("No UserID in Reids about the gateway")
@@ -249,7 +250,7 @@ local function joinAcceptConverter(rfJson, joinReqJson)
   local outputObject = {}
   outputObject.version = joinReqJson.version
   outputObject.token = crypto.rand.bytes(consts.UDP_TOKEN_LEN)
-  p("token:", crypto.hex(outputObject.token))
+  -- p("token:", crypto.hex(outputObject.token))
   outputObject.token = crypto.hex(outputObject.token)
   -- outputObject.identifier = buffer:new(consts.UDP_IDENTIFIER_LEN)
   -- outputObject.identifier:writeUInt8(1, consts.UDP_ID_PULL_RESP) -- UDP_ID_PULL_RESP

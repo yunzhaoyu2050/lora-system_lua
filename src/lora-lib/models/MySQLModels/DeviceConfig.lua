@@ -315,10 +315,10 @@ function DeviceConfig.UpdateItem(appoint, item)
             DeviceConfig.hashTable[k].MaxEIRP = v
           end,
           [utiles.Nil] = function()
-            return p("i is nil")
+            p("i is nil")
           end,
           [utiles.Default] = function()
-            return p("item is other, please check it.", i)
+            p("item is other, please check it.", i)
           end
         }
       end

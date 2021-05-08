@@ -46,12 +46,14 @@ function FCtrlPackager(FCtrlJSON)
   return FCtrl
 end
 
--- phy层打包
+-- phy层细打包
 function packager(phyPayloadJSON)
+  p("   phypayload packager...")
   local MType = phyPayloadJSON.MHDR.MType
   local MACPayload = phyPayloadJSON.MACPayload
   local MHDR
   local FHDR
+
   -- const MType = utils.bitwiseFilter(phyPayloadJSON.MHDR, consts.MTYPE_OFFSET, consts.MTYPE_LEN);
   local FIRMED_DATA_DOWN = function()
     -- 配置下发数据
@@ -69,10 +71,11 @@ function packager(phyPayloadJSON)
     FHDR = FHDRPackager(MACPayload.FHDR) --fhdr打包
   end
 
-  local JOIN_ACCEPT = function()
+  local JOIN_ACCEPT = function()  -- join accept消息 下行处理
     local devaddr = MACPayload.DevAddr
     local key = _deviceInfoMysql.readItem({DevAddr = devaddr}, {"AppKey"})
     if key ~= nil then
+      p("   join accept message packager...")
       return joinHandler.packager(phyPayloadJSON, key.AppKey)
     end
   end

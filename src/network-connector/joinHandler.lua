@@ -14,7 +14,7 @@ local function MHDRPackager(mhdr)
 end
 
 local function AcptEncryption(acpt, key)
-  p("key:", key)
+  -- p("key:", key)
   local newKey = buffer:new(string.len(key)) -- mysql存储的是hex字符串需要转换成dec的buffer
   utiles.BufferFill(newKey, 0, 1, newKey.length)
   if type(key) == "string" then
@@ -23,7 +23,7 @@ local function AcptEncryption(acpt, key)
     newKey = key
   end
   newKey = utiles.BufferSlice(newKey, 1, 16)
-  p("newKey:", utiles.BufferToHexString(newKey))
+  -- p("newKey:", utiles.BufferToHexString(newKey))
 
   -- 注意:网络服务器在 ECB 模式下使用一个 AES 解密操作去对 join-accept 消息进行加
   -- 密， 因此终端就可以使用一个 AES 加密操作去对消息进行解密。 这样终端只需要去实现
@@ -32,19 +32,21 @@ local function AcptEncryption(acpt, key)
   -- consts.ENCRYPTION_ALGO
   local cipher = crypto.encrypt("aes128", acpt:toString(), newKey:toString(), iv) -- 使用解密生成！！！ TODO:当前使用加密操作
 
-  p(acpt:toString())
+  -- p(acpt:toString())
   -- local cipher = crypto.decrypt("aes128", acpt:toString(), newKey:toString(), iv) -- 使用解密生成！！！
   
   cipher = crypto.hex(cipher)
-  p("cipher:", cipher)
+  -- p("cipher:", cipher)
   local ret = buffer:new(string.len(cipher) / 2)
   utiles.BufferFromHexString(ret, 1, cipher)
   -- ret = utiles.BufferSlice(ret, 1, string.len(key))
   return ret
 end
 
--- phy层打包数据
+-- phy层 join accept 数据打包
 function packager(phyPayloadJSON, key)
+  -- p("   phyPayloadJSON:", phyPayloadJSON)
+
   phyPayloadJSON.MHDR = MHDRPackager(phyPayloadJSON.MHDR)
   local MACPayloadJSON = phyPayloadJSON.MACPayload -- macpayload层数据
 
@@ -64,24 +66,15 @@ function packager(phyPayloadJSON, key)
   utiles.BufferCopy(newPhyPayloadJSON.MACPayload.RxDelay, 1, phyPayloadJSON.MACPayload.RxDelay)
 
   local MIC = joinMICCalculator(newPhyPayloadJSON, key, "accept") -- 计算mic值aes_cmac
-  utiles.printBuf(MIC)
-  p("join accept message mic value:", utiles.BufferToHexString(MIC))
-
+  p("     join accept message mic value:", utiles.BufferToHexString(MIC))
   -- macpayload数据打包
-  p("macpayload:")
+  -- p("macpayload:")
   local macpayload = utiles.BufferConcat(utiles.reverse(MACPayloadJSON.AppNonce), utiles.reverse(MACPayloadJSON.NetID))
-  utiles.printBuf(macpayload)
-
   local _devAddr = buffer:new(consts.DEVADDR_LEN)
   _devAddr = utiles.BufferFromHexString(_devAddr, 1, MACPayloadJSON.DevAddr)
   macpayload = utiles.BufferConcat(macpayload, utiles.reverse(_devAddr))
-  utiles.printBuf(macpayload)
-
   macpayload = utiles.BufferConcat(macpayload, utiles.reverse(MACPayloadJSON.DLSettings))
-  utiles.printBuf(macpayload)
-
   macpayload = utiles.BufferConcat(macpayload, utiles.reverse(MACPayloadJSON.RxDelay))
-  utiles.printBuf(macpayload)
 
   if MACPayloadJSON.CFList ~= nil then
     macpayload = utiles.BufferConcat(macpayload, MACPayloadJSON.CFList)
@@ -99,13 +92,11 @@ function packager(phyPayloadJSON, key)
   -- 样的设置中， 应用提供商必须支持网络运营商处理终端的加网以及为终端生成
   -- NwkSkey。 同时应用提供商向网络运营商承诺， 它将承担终端所产生的任何流量费用并
   -- 且保持用于保护应用数据的AppSKey的完全控制权。
-  p("no macpayload:", utiles.BufferToHexString(macpayload))
   local encmacpayload = AcptEncryption(macpayload, key) -- ?
-  p("encmacpayload:", utiles.BufferToHexString(encmacpayload))
 
   local phypayload = utiles.BufferConcat(phyPayloadJSON.MHDR, encmacpayload)
   -- 生成打包好的数据
-  -- p("phypayload hex:", )
+  p("     join accept message phypayload packager:", utiles.BufferToHexString(phypayload))
   return phypayload
 end
 
@@ -140,9 +131,6 @@ function joinMICCalculator(requiredFields, key, typeInput)
     -- 表(CFList)。 CFList 的选择是由区域指定的， 在 LoRaWAN 地区参数文件[PARAMS]中进行
     -- 定义。
     -- consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + consts.DEVADDR_LEN + consts.DLSETTINGS_LEN + consts.RXDELAY_LEN -- consts.BLOCK_LEN_ACPT_MIC_BASE
-    p("micPayload:")
-    -- utiles.printBuf(requiredFields.MACPayload.AppNonce)
-
     micPayload =
       buffer:new(
       consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + consts.DEVADDR_LEN + consts.DLSETTINGS_LEN +
@@ -150,22 +138,18 @@ function joinMICCalculator(requiredFields, key, typeInput)
     ) -- Buffer.concat(bufferArray, consts.BLOCK_LEN_ACPT_MIC_BASE);
     utiles.BufferFill(micPayload, 0, 1, micPayload.length)
     micPayload:writeUInt8(1, requiredFields.MHDR:readUInt8(1)) -- requiredFields.MHDR 是buffer类型
-    utiles.printBuf(micPayload)
     utiles.BufferWrite(
       micPayload,
       consts.MHDR_LEN + 1,
       utiles.reverse(requiredFields.MACPayload.AppNonce),
       consts.APPNONCE_LEN
     )
-    utiles.printBuf(micPayload)
     utiles.BufferWrite(
       micPayload,
       consts.MHDR_LEN + consts.APPNONCE_LEN + 1,
       utiles.reverse(requiredFields.MACPayload.NetID),
       consts.NETID_LEN
     )
-    -- utiles.printBuf(requiredFields.MACPayload.NetID)
-    utiles.printBuf(micPayload)
     local _devAddr = buffer:new(consts.DEVADDR_LEN)
     local _devAddr = utiles.BufferFromHexString(_devAddr, 1, requiredFields.MACPayload.DevAddr)
     utiles.BufferWrite(
@@ -174,21 +158,18 @@ function joinMICCalculator(requiredFields, key, typeInput)
       utiles.reverse(_devAddr), -- requiredFields.MACPayload.DevAddr 是string类型
       consts.DEVADDR_LEN
     )
-    utiles.printBuf(micPayload)
     utiles.BufferWrite(
       micPayload,
       consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + consts.DEVADDR_LEN + 1,
       utiles.reverse(requiredFields.MACPayload.DLSettings),
       consts.DLSETTINGS_LEN
     )
-    utiles.printBuf(micPayload)
     utiles.BufferWrite(
       micPayload,
       consts.MHDR_LEN + consts.APPNONCE_LEN + consts.NETID_LEN + consts.DEVADDR_LEN + consts.DLSETTINGS_LEN + 1,
       utiles.reverse(requiredFields.MACPayload.RxDelay),
       consts.RXDELAY_LEN
     )
-    utiles.printBuf(micPayload)
   end
   local keyLen = 0
   if type(key) == "string" then
@@ -208,6 +189,7 @@ function joinMICCalculator(requiredFields, key, typeInput)
 end
 
 local function micVerification(requiredFields, key, receivedMIC)
+  p("   mic value Verification:")
   -- 复制一份requiredFields防止误修改原先的值
   local newrequiredFields = {
     MHDR = requiredFields.MHDR
@@ -222,14 +204,14 @@ local function micVerification(requiredFields, key, receivedMIC)
   utiles.BufferCopy(newrequiredFields.MIC, 1, requiredFields.MIC)
 
   local calculatedMIC = joinMICCalculator(newrequiredFields, key, "request")
-  p("calculatedMIC:", utiles.BufferToHexString(calculatedMIC))
-  p("receivedMIC:", utiles.BufferToHexString(receivedMIC))
+  p("       calculatedMIC:", utiles.BufferToHexString(calculatedMIC))
+  p("         receivedMIC:", utiles.BufferToHexString(receivedMIC))
   if utiles.BufferToHexString(receivedMIC) == utiles.BufferToHexString(calculatedMIC) then
-    p("mic value, verification succeeded")
+    p("   mic value, verification succeeded")
     return {}
   else
     p(
-      "MIC Mismatch, recvmic:",
+      "   MIC Mismatch, recvmic:",
       utiles.BufferToHexString(calculatedMIC),
       "calcmic:",
       utiles.BufferToHexString(receivedMIC)
@@ -249,6 +231,7 @@ end
 
 -- 入网请求解析部分
 function parser(phyPayloadJSON)
+  p("Join Request message parser...")
   local MACPayload = joinReqParser(phyPayloadJSON.macPayload) -- macPayload相当于Join-Request
   local phyPayload = {
     MHDR = phyPayloadJSON.mhdrJSON,
@@ -262,14 +245,16 @@ function parser(phyPayloadJSON)
     DevNonce = MACPayload.DevNonce,
     MIC = phyPayloadJSON.mic
   }
-  p("AppEUI:", utiles.BufferToHexString(MACPayload.AppEUI))
-  p("DevEUI:", utiles.BufferToHexString(MACPayload.DevEUI))
-  p("DevNonce:", utiles.BufferToHexString(MACPayload.DevNonce))
+  p("   join reqest message:")
+  p("                  MHDR:", MICfields.MHDR)
+  p("                AppEUI:", utiles.BufferToHexString(MICfields.AppEUI))
+  p("                DevEUI:", utiles.BufferToHexString(MICfields.DevEUI))
+  p("              DevNonce:", utiles.BufferToHexString(MICfields.DevNonce))
+  p("                   MIC:", utiles.BufferToHexString(MICfields.MIC))
   local query = {
     DevEUI = utiles.BufferToHexString(MACPayload.DevEUI)
   }
-  local attr = {"AppKey"}
-  local res = DeviceInfoMysql.readItem(query, attr) -- 数据库中查询AppKey值
+  local res = DeviceInfoMysql.readItem(query, {"AppKey"}) -- 数据库中查询AppKey值
   if res.AppKey == nil then
     p("Query the deveui information of no such device from the device library, deveui:", query.DevEUI)
     return nil

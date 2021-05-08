@@ -7,8 +7,6 @@ function handleMessage(recvServerData,callBack)
         recvServerData.rxpk.data = acptPHYPayload -- join server处理之后的数据
         return recvServerData
       end
-    else
-      p("recvServerData.rxpk is nil")
     end
   end
   return nil

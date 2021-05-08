@@ -3,7 +3,6 @@ local phyParser = require("./phyParser.lua")
 local json = require("json")
 local buffer = require("buffer").Buffer
 local ffi = require("ffi")
--- local basexx = require("../deps/basexx/lib/basexx.lua")
 local utiles = require("../../utiles/utiles.lua")
 
 local function txAckParser(txAckData)
@@ -68,6 +67,7 @@ function parser(data)
     p("Invalid identifier, any of [0x00, 0x02, 0x05] is required")
     return nil
   end
+  p("gateway -> server, data parser:", udpJSON)
   return udpJSON
 end
 
@@ -92,11 +92,9 @@ function packager(requiredFields)
     --   requiredFields.gatewayId
     -- )
   elseif requiredFields.identifier == consts.UDP_ID_PULL_RESP then
-    -- p("requiredFields:", requiredFields, #requiredFields.payload)
     local txpk = {
       txpk = requiredFields.txpk
     }
-    -- if string.find(requiredFields, 'dstID', 1) then
     if requiredFields.dstID ~= nil then
       txpk.dstID = requiredFields.dstID
     end
@@ -108,14 +106,7 @@ function packager(requiredFields)
     p("Bad type of UDP identifier")
     return nil
   end
-  -- utiles.printBuf(data)
-  -- local tmp = {}
-  -- for i = 1, data.length do
-  --   tmp[i] = data[i]
-  -- end
-  -- return tmp
   local tmp = data:toString()
-  -- p(tmp)
   return tmp
 end
 
@@ -123,6 +114,7 @@ end
 -- @param incomingJSON gateway -> server传过来粗解析后的数据
 -- @return ACK错误：nil, ACK成功：非nil
 function ACK(incomingJSON)
+  p("server -> gateway, data process")
   if incomingJSON == nil then
     p("function <ACK>, incomingJSON param is nil")
     return nil
@@ -149,6 +141,7 @@ end
 -- pushData解析
 -- @param udpPushJSON
 function pushDataParser(udpPushJSON)
+  p("rough analysis of upstream data...")
   if udpPushJSON == nil then
     p("udpPushJSON is nil")
     return -1
@@ -172,7 +165,6 @@ function pushDataParser(udpPushJSON)
   --   if ('srcID' in pushDataJSON) { // ? 可能是自行设计的元素
   --     output.srcID = pushDataJSON.srcID;
   --   }
-  p(pushDataJSON)
   if pushDataJSON["rxpk"] ~= nil then -- 上行数据
     -- pushDataJSON.rxpk.可能为一个数组包含多组rxpk
     rxpkPromise = {}

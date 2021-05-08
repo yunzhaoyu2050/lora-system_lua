@@ -1,12 +1,12 @@
 local consts = require("../lora-lib/constants/constants.lua")
-local DeviceConfig = require("../lora-lib/models/MySQLModels/DeviceConfig.lua")
-local DeviceInfo = require("../lora-lib/models/MySQLModels/DeviceInfo.lua")
+local mysqlDeviceConfig = require("../lora-lib/models/MySQLModels/DeviceConfig.lua")
+local mysqlDeviceInfo = require("../lora-lib/models/MySQLModels/DeviceInfo.lua")
 local buffer = require("buffer").Buffer
 local utiles = require("../../utiles/utiles.lua")
 local bit = require("bit")
 local crypto = require("../../deps/lua-openssl/lib/crypto.lua")
 local rand = crypto.rand
-local lcrypto = require("../../deps/luvit-github/deps/tls/lcrypto.lua")
+-- local lcrypto = require("../../deps/luvit-github/deps/tls/lcrypto.lua")
 
 -- DLSettings字段打包
 -- @param
@@ -15,17 +15,15 @@ local lcrypto = require("../../deps/luvit-github/deps/tls/lcrypto.lua")
 --    度限制和平衡上下行射频链路预算。
 -- @param
 --    RX2DR
-local function DLSettingsPackager(RX1DRoffset, RX2DR)
+local function DLSettingsPackager(OptNeg, RX1DRoffset, RX2DR)
   -- DLsettings字段包含了下行配置:
   -- Bits       7   6:4         3:0
   -- DLsettings RFU RX1DRoffset RX2Datarate
-  local OptNeg = 0 -- TODO: 默认值为1
   local DLSettings = buffer:new(consts.DLSETTINGS_LEN)
   utiles.BufferFill(DLSettings, 0, 1, DLSettings.length)
   DLSettings = utiles.bitwiseAssigner(DLSettings, consts.OPTNEG_OFFSET, consts.OPTNEG_LEN, OptNeg)
   DLSettings = utiles.bitwiseAssigner(DLSettings, consts.RX1DROFFSET_OFFSET, consts.RX1DROFFSET_LEN, RX1DRoffset)
   DLSettings = utiles.bitwiseAssigner(DLSettings, consts.RX2DR_OFFSET, consts.RX2DR_LEN, RX2DR)
-  -- utiles.printBuf(DLSettings)
   return DLSettings
 end
 
@@ -158,7 +156,7 @@ local function readDevice(queryOpt)
     "DevAddr",
     "AppKey"
   }
-  local res = DeviceInfo.readItem(queryOpt, attributes) -- MySQLModels DeviceInfo
+  local res = mysqlDeviceInfo.readItem(queryOpt, attributes) -- MySQLModels DeviceInfo
   if res.AppKey then
     _AppKey = res.AppKey
     return res
@@ -185,7 +183,7 @@ end
 
 -- join server模块 join请求数据处理单元
 function handler(rxpk)
-  p("recv join request message")
+  p("join request message process...")
   local joinReqPayload = rxpk.data
   local freq = rxpk.freq
   -- Check the length of join request
@@ -204,15 +202,15 @@ function handler(rxpk)
   -- Query the existance of DevEUI
   -- If so, process the rejoin procedure
 
-  -- local random = lcrypto.randomBytes(consts.APPNONCE_LEN)
   local random = rand.bytes(consts.APPNONCE_LEN)
   _AppNonce = buffer:new(consts.APPNONCE_LEN)
   for i = 1, string.len(random), 1 do
     _AppNonce[i] = string.byte(i)
   end
-  -- p("_AppNonce: ", utiles.BufferToHexString(_AppNonce))
 
-  _NetID = buffer:new(consts.NETID_LEN)
+  -- NetID的格式如下所述:NetID的7个最低有效位称为NwkID并且和之前所描述的终端的短地址
+  -- 的7个最高有效位相对应。保留的17个最高有效位可以由网络运营商进行自由选择。
+  _NetID = buffer:new(consts.NETID_LEN) -- TODO: netid
   utiles.BufferFill(_NetID, 0, 1, _NetID.length)
 
   -- Promises
@@ -231,22 +229,30 @@ function handler(rxpk)
 
   local initDeviceConf = function(deviceConf) -- mysql设备配置信息更新
     local query = {DevAddr = deviceConf.DevAddr}
-    return DeviceConfig.UpdateItem(query, deviceConf)
+    return mysqlDeviceConfig.UpdateItem(query, deviceConf)
   end
 
   local updateDevInfo = function(DevAddr)
+
+    local OptNeg = 0 -- 默认lorawan协议版本1.0版本 
+    local res = mysqlDeviceInfo.readItem({DevAddr = DevAddr}, {"ProtocolVersion"})
+    if res.ProtocolVersion ~= nil then
+      if res.ProtocolVersion == "1.1" then
+        OptNeg = 1
+      end
+    end
+
     local RX1DRoffset = 4 -- TODO: RX1DRoffset值写死需确定
     local RX2DR = 0 -- TODO: RX2DR值写死需确定
     local delay = 1 -- TODO: delay值写死需确定
-    _DLSettings = DLSettingsPackager(RX1DRoffset, RX2DR)
+    _DLSettings = DLSettingsPackager(OptNeg, RX1DRoffset, RX2DR)
     _RxDelay = buffer:new(consts.RXDELAY_LEN)
     utiles.BufferFill(_RxDelay, 0, 1, _RxDelay.length)
     _RxDelay = RxDelayPackager(_RxDelay, delay)
 
     _acpt = genAcpt(joinReq, _DLSettings, _RxDelay) -- 得到粗打包的数据
 
-    local deviceInfoUpd = {
-      -- mysql需要更新的内容
+    local deviceInfoUpd = {       -- mysql需要更新的内容
       DevAddr = DevAddr,
       DevNonce = utiles.BufferToHexString(joinReq.DevNonce),
       AppNonce = utiles.BufferToHexString(_AppNonce),
@@ -254,15 +260,23 @@ function handler(rxpk)
       AppSKey = utiles.BufferToHexString(_acpt.sKey.AppSKey)
     }
     -- _acpt.sKey = nil -- TODO:
+    p("   update mysql deviceInfo:")
+    p("                   DevAddr:", deviceInfoUpd.DevAddr)
+    p("                  AppNonce:", deviceInfoUpd.AppNonce)
+    p("                  DevNonce:", deviceInfoUpd.DevNonce)
+    p("                   NwkSKey:", deviceInfoUpd.NwkSKey)
+    p("                   AppSKey:", deviceInfoUpd.AppSKey)
     _DevAddr = DevAddr
     _defaultConf.DevAddr = DevAddr
     _defaultConf.RX1DRoffset = RX1DRoffset
-    DeviceInfo.UpdateItem(appKeyQueryOpt, deviceInfoUpd) -- mysql设备信息更新
+    mysqlDeviceInfo.UpdateItem(appKeyQueryOpt, deviceInfoUpd) -- mysql设备信息更新
     return initDeviceConf(_defaultConf) -- mysql设备配置信息更新
   end
 
   local returnAcptMsg = function()
     local acptPHY = joinAcptPHYPackager(_acpt)
+    p("downstream data processing...")
+    p("   join Acpt PHY Packager:", acptPHY)
     return acptPHY
   end
 

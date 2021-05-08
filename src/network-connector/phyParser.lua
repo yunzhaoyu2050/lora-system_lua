@@ -84,7 +84,6 @@ function macPayloadParser(macPayload)
   local macPayloadJSON = {
     fhdr, -- 原始数据
     fhdrJSON -- 解析后的数据
-    -- 解析后的数据
   }
   -- Check if these is any FPort
   if fhdrEnd == macPayloadLen then -- 不是macplay的消息
@@ -110,6 +109,7 @@ function macPayloadParser(macPayload)
     end
   end
 end
+
 -- Parse MType, Major from MHDR
 -- @param mhdr 解析数据
 -- @return MType Major
@@ -135,7 +135,7 @@ local function phyPayloadParser(phyPayload)
   local MIC_OFFSET = consts.MACPAYLOAD_OFFSET + 1 + macPayloadLen - 1
   local macPayload = utiles.BufferSlice(phyPayload, consts.MACPAYLOAD_OFFSET + 1, MIC_OFFSET)
   local mic = utiles.BufferSlice(phyPayload, MIC_OFFSET + 1)
-  utiles.printBuf(phyPayload)
+  -- utiles.printBuf(phyPayload)
 
   return {
     mhdr = mhdr,
@@ -259,30 +259,38 @@ end
 
 -- phyLayer层解析
 -- @param phyPayloadRaw json解析过的data数据
+-- @return 失败: nil
 function parser(phyPayloadRaw)
+  p("PHYPayload data parser...")
   if phyPayloadRaw == nil then
     p("phyPayloadRaw is nil")
     return nil
   end
-  -- local tmp = base64x.decode(phyPayloadRaw) -- base64 to string
   local tmp = basexx.from_base64(phyPayloadRaw) -- base64 to string
-  p("from_base64:", tmp)
   local phyPayload = buffer:new(tmp)
-  -- PHY layer
   local phyPayloadJSON = phyPayloadParser(phyPayload)
 
-  local direction = buffer:new(consts.DIRECTION_LEN)
-  direction[1] = consts.BLOCK_DIR_CLASS.Up
-
   -- 判断Data message type
+  -- MType 描述
+  -- 000 Join Request
+  -- 001 Join Accept
+  -- 010 Unconfirmed Data Up
+  -- 011 Unconfirmed Data Down
+  -- 100 Confirmed Data Up
+  -- 101 Confirmed Data Down
+  -- 110 RFU
+  -- 111 Proprietary
   if
     consts.NS_MSG_TYPE_LIST[phyPayloadJSON.mhdrJSON.MType + 1] > -1 and
       consts.NS_MSG_TYPE_LIST[phyPayloadJSON.mhdrJSON.MType + 1] ~= consts.JOIN_REQ
-   then -- ?TODO:干什么用的 ?判断消息类型
+   then -- 非Join Request消息
     if phyPayload.length < consts.MIN_PHYPAYLOAD_LEN then
       p("Insufficient length of PHYPayload, greater than ${consts.MIN_PHYPAYLOAD_LEN} bytes is mandatory")
       return nil
     end
+    local direction = buffer:new(consts.DIRECTION_LEN)
+    direction[1] = consts.BLOCK_DIR_CLASS.Up
+
     local macPayloadJSON = macPayloadParser(phyPayloadJSON.macPayload)
     -- MIC verification mic计算需要使用的参数
     local requiredFields = {
@@ -295,21 +303,17 @@ function parser(phyPayloadRaw)
       requiredFields.FPort = macPayloadJSON.FPort
       requiredFields.FRMPayload = macPayloadJSON.FRMPayload
     end
-    -- 用于查询使用
+
     local queryAttributes = {"NwkSKey", "AppSKey"}
-    -- const queryOpts = {
-    --   DevAddr: requiredFields.DevAddr,
-    -- };
     local res = getAndCacheDeviceInfo(requiredFields.DevAddr, queryAttributes)
     res = macPayloadMICVerify(requiredFields, res, direction, phyPayloadJSON)
     return decryptFRMPayload(res, phyPayloadJSON, macPayloadJSON, requiredFields, direction)
-  elseif consts.JS_MSG_TYPE_LIST[phyPayloadJSON.mhdrJSON.MType + 1] == consts.JOIN_REQ then -- join请求
+  elseif consts.JS_MSG_TYPE_LIST[phyPayloadJSON.mhdrJSON.MType + 1] == consts.JOIN_REQ then -- Join Request消息
     if phyPayloadJSON.macPayload.length ~= consts.JOINREQ_BASIC_LENGTH then -- 出错
       p("Invalid length of JOIN request, ${consts.JOINREQ_BASIC_LENGTH} bytes is mandatory")
       return nil
     end
-    -- 入网请求解析
-    return joinHandler.parser(phyPayloadJSON)
+    return joinHandler.parser(phyPayloadJSON) -- Join Request消息解析
   else -- 出错
     p("nvalid message type, one of [0, 2, 4] is mandatory")
     return -4
