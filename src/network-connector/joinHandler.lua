@@ -5,7 +5,6 @@ local utiles = require("../../utiles/utiles.lua")
 local aesCmac = require("../../deps/node-aes-cmac-lua/lib/aes-cmac.lua").aesCmac
 local crypto = require("../../deps/lua-openssl/lib/crypto.lua")
 
-
 local function MHDRPackager(mhdr)
   local MHDR = buffer:new(consts.MHDR_LEN)
   utiles.bitwiseAssigner(MHDR, consts.MTYPE_OFFSET, consts.MTYPE_LEN, mhdr.MType)
@@ -14,7 +13,6 @@ local function MHDRPackager(mhdr)
 end
 
 local function AcptEncryption(acpt, key)
-  -- p("key:", key)
   local newKey = buffer:new(string.len(key)) -- mysql存储的是hex字符串需要转换成dec的buffer
   utiles.BufferFill(newKey, 0, 1, newKey.length)
   if type(key) == "string" then
@@ -23,7 +21,6 @@ local function AcptEncryption(acpt, key)
     newKey = key
   end
   newKey = utiles.BufferSlice(newKey, 1, 16)
-  -- p("newKey:", utiles.BufferToHexString(newKey))
 
   -- 注意:网络服务器在 ECB 模式下使用一个 AES 解密操作去对 join-accept 消息进行加
   -- 密， 因此终端就可以使用一个 AES 加密操作去对消息进行解密。 这样终端只需要去实现
@@ -34,9 +31,8 @@ local function AcptEncryption(acpt, key)
 
   -- p(acpt:toString())
   -- local cipher = crypto.decrypt("aes128", acpt:toString(), newKey:toString(), iv) -- 使用解密生成！！！
-  
+
   cipher = crypto.hex(cipher)
-  -- p("cipher:", cipher)
   local ret = buffer:new(string.len(cipher) / 2)
   utiles.BufferFromHexString(ret, 1, cipher)
   -- ret = utiles.BufferSlice(ret, 1, string.len(key))
@@ -45,8 +41,6 @@ end
 
 -- phy层 join accept 数据打包
 function packager(phyPayloadJSON, key)
-  -- p("   phyPayloadJSON:", phyPayloadJSON)
-
   phyPayloadJSON.MHDR = MHDRPackager(phyPayloadJSON.MHDR)
   local MACPayloadJSON = phyPayloadJSON.MACPayload -- macpayload层数据
 
@@ -68,7 +62,6 @@ function packager(phyPayloadJSON, key)
   local MIC = joinMICCalculator(newPhyPayloadJSON, key, "accept") -- 计算mic值aes_cmac
   p("     join accept message mic value:", utiles.BufferToHexString(MIC))
   -- macpayload数据打包
-  -- p("macpayload:")
   local macpayload = utiles.BufferConcat(utiles.reverse(MACPayloadJSON.AppNonce), utiles.reverse(MACPayloadJSON.NetID))
   local _devAddr = buffer:new(consts.DEVADDR_LEN)
   _devAddr = utiles.BufferFromHexString(_devAddr, 1, MACPayloadJSON.DevAddr)
@@ -112,7 +105,7 @@ function joinMICCalculator(requiredFields, key, typeInput)
     -- cmac[0..3]
     micPayload = buffer:new(consts.APPEUI_LEN + consts.MHDR_LEN + consts.DEVEUI_LEN + consts.DEVNONCE_LEN)
     utiles.BufferFill(micPayload, 0, 1, micPayload.length)
-    micPayload:writeUInt8(1, requiredFields.MHDR)
+    micPayload:writeUInt8(1, requiredFields.MHDR:readUInt8(1))
     utiles.BufferWrite(micPayload, consts.MHDR_LEN + 1, utiles.reverse(requiredFields.AppEUI), consts.APPEUI_LEN)
     utiles.BufferWrite(
       micPayload,

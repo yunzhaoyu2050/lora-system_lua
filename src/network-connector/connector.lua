@@ -83,7 +83,6 @@ function DownlinkTask(message)
     local udpDlData = udpHandler.packager(message) -- udp层打包
     local udpInfo = gatewayInfoRedis.Read(message.gatewayId) -- 取得网关信息
     if udpInfo then
-      
       local cliUdpInfo = {}
       if message.identifier == consts.UDP_ID_PULL_DATA then -- TODO: 修正 PULL_RESP通过* pull_port *发送到网关。 因此，网关必须在可以接收任何PULL_RESP之前发送PULL_DATA。
         cliUdpInfo.port = udpInfo.pullPort
@@ -91,7 +90,6 @@ function DownlinkTask(message)
         cliUdpInfo.port = udpInfo.pushPort
       end
       -- cliUdpInfo.port = udpInfo.pullPort
-
       cliUdpInfo.ip = udpInfo.address
       p(
         "udp send message to gateway, udp-ip:",

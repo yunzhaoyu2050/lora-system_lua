@@ -1,7 +1,7 @@
 local DeviceInfoRedis = require("../lora-lib/models/RedisModels/DeviceInfo.lua")
 local DeviceInfoMysql = require("../lora-lib/models/MySQLModels/DeviceInfo.lua")
-local DeviceRouting = require("../lora-lib/models/MySQLModels/DeviceRouting.lua")
-local DeviceConfig = require("../lora-lib/models/MySQLModels/DeviceConfig.lua")
+local DeviceRoutingMysql = require("../lora-lib/models/MySQLModels/DeviceRouting.lua")
+local DeviceConfigMysql = require("../lora-lib/models/MySQLModels/DeviceConfig.lua")
 
 local basexx = require("../../deps/basexx/lib/basexx.lua")
 local base64x = require("../../utiles/base64.lua")
@@ -19,6 +19,9 @@ local utiles = require("../../utiles/utiles.lua")
 
 -- 解析FCtrl
 local function fctrlParser(fctrl)
+  -- 上行消息如下:
+  -- Bit#         7    6       5   4  [3..0]
+  -- FCtrl bits ADR ADRACKReq ACK RFU FOptsLen
   local ADR = bit.rshift(fctrl, consts.FC_ADR_OFFSET)
   local ADRACKReq =
     bit.rshift(
@@ -37,7 +40,7 @@ local function fctrlParser(fctrl)
     bit.band(fctrl, utiles.CalcVersusValue(consts.FC_FOPTSLEN_OFFSET, consts.FOPTSLEN)),
     consts.FC_FOPTSLEN_OFFSET
   )
-  return {ADR, ADRACKReq, ACK, ClassB, FOptsLen}
+  return {ADR = ADR, ADRACKReq = ADRACKReq, ACK = ACK, ClassB = ClassB, FOptsLen = FOptsLen}
 end
 
 -- Parse FHDR from MAC Payload, variable length
@@ -45,28 +48,44 @@ end
 local function fhdrParser(macPayload)
   if macPayload == nil then
     p("macPayload is nil")
-    return -1
+    return nil
   end
-  local DevAddr = macPayload:readUInt32BE(consts.MP_DEVADDR_OFFSET + 1)
+  p("   macpayload:")
+  utiles.printBuf(macPayload)
+  -- slice(macPayload, consts.MP_DEVADDR_OFFSET, consts.MP_DEVADDR_END);
+  local DevAddr = utiles.BufferSlice(macPayload, consts.MP_DEVADDR_OFFSET + 1, consts.MP_DEVADDR_END)
+  DevAddr = utiles.BEToLE(DevAddr)
+  p("   DevAddr:", utiles.BufferToHexString(DevAddr))
   local FCtrl = macPayload:readUInt8(consts.MP_FCTRL_OFFSET + 1)
   local FCtrlJSON = fctrlParser(FCtrl)
-  local FCnt = utiles.BufferSlice(macPayload, consts.MP_FCNT_OFFSET + 1, consts.MP_FCNT_END + 1)
+  local FCnt = utiles.BufferSlice(macPayload, consts.MP_FCNT_OFFSET + 1, consts.MP_FCNT_END)
+  FCnt = utiles.BEToLE(FCnt)
+  p("   FCnt:")
+  utiles.printBuf(FCnt)
   local fhdrEnd = consts.MP_FOPTS_OFFSET + 1 + FCtrlJSON.FOptsLen
   local FOptsBuf = utiles.BufferSlice(macPayload, consts.MP_FOPTS_OFFSET + 1, fhdrEnd)
-
+  FOptsBuf = utiles.BEToLE(FOptsBuf)
+  p("   FOptsBuf:")
+  utiles.printBuf(FOptsBuf)
   -- mac cmd解析 FOpts中携带mac命令序列的情况下
   local FOptsJson = macCmdParser.parser(FOptsBuf)
+  if FOptsJson == nil then
+    p("macCmdParser.parser failed")
+    return nil
+  end
 
   if FOptsJson.ansLen > consts.FOPTS_MAXLEN then
     p("Invalid length of Request MACCommand in FOpts")
-    return -2
+    return nil
   end
+
   local FOpts = FOptsJson.cmdArr
+
   return {
-    DevAddr,
+    DevAddr = DevAddr,
     FCtrl = FCtrlJSON,
-    FCnt,
-    FOpts
+    FCnt = FCnt,
+    FOpts = FOpts
   }
 end
 
@@ -75,15 +94,21 @@ end
 function macPayloadParser(macPayload)
   if macPayload == nil then
     p("macPayload is nil")
-    return -1
+    return nil
   end
   local macPayloadLen = macPayload.length
   local fhdrJSON = fhdrParser(macPayload) -- fhdr字段解析
+  if fhdrJSON == nil then
+    p("fhdr Parser failed")
+    return nil
+  end
   local fhdrEnd = consts.MP_FOPTS_OFFSET + 1 + fhdrJSON.FCtrl.FOptsLen
-  local fhdr = utiles.BufferSlice(macPayload, consts.MP_FHDR_OFFSET + 1, consts.MP_FHDR_OFFSET + 1 + fhdrEnd)
+  local fhdr = utiles.BufferSlice(macPayload, consts.MP_FHDR_OFFSET + 1, fhdrEnd)
+  p("   fhdr:")
+  utiles.printBuf(fhdr)
   local macPayloadJSON = {
-    fhdr, -- 原始数据
-    fhdrJSON -- 解析后的数据
+    fhdr = fhdr, -- 原始数据
+    fhdrJSON = fhdrJSON -- 解析后的数据
   }
   -- Check if these is any FPort
   if fhdrEnd == macPayloadLen then -- 不是macplay的消息
@@ -93,14 +118,14 @@ function macPayloadParser(macPayload)
   else
     if fhdrEnd > macPayloadLen then -- 出错
       p("Insufficient length of FOpts, the package is ignored")
-      return -2
+      return nil
     else
       local FRMPayloadOffset = fhdrEnd + consts.FPORT_LEN
       local FPort = utiles.BufferSlice(macPayload, fhdrEnd, FRMPayloadOffset)
       local FRMPayload = utiles.BufferSlice(macPayload, FRMPayloadOffset, macPayload.length)
       if FRMPayload.length <= 0 then -- 出错
         p("FRMPayload must not be empty if FPort is given")
-        return -3
+        return nil
       end
       -- 解析成功
       macPayloadJSON.FPort = FPort
@@ -128,9 +153,9 @@ end
 -- @param phyPayload buffer类型数据
 local function phyPayloadParser(phyPayload)
   local phyLen = phyPayload.length
-  local mhdr = phyPayload:readUInt8(consts.MHDR_OFFSET + 1)
+  local mhdr = utiles.BufferSlice(phyPayload, consts.MHDR_OFFSET + 1, consts.MHDR_LEN)
   -- MAC layer MAC头(MHDR字段)
-  local mhdrJSON = mhdrParser(mhdr)
+  local mhdrJSON = mhdrParser(mhdr:readUInt8(1))
   local macPayloadLen = phyLen - consts.MHDR_LEN - consts.MIC_LEN
   local MIC_OFFSET = consts.MACPAYLOAD_OFFSET + 1 + macPayloadLen - 1
   local macPayload = utiles.BufferSlice(phyPayload, consts.MACPAYLOAD_OFFSET + 1, MIC_OFFSET)
@@ -146,16 +171,16 @@ local function phyPayloadParser(phyPayload)
 end
 
 -- 从缓存中读取DeviceInfo
-function getAndCacheDeviceInfo(DevAddr, queryAttributes)
+local function getAndCacheDeviceInfo(DevAddr, queryAttributes)
   if DevAddr == nil or queryAttributes == nil then
     p("DevAddr is nil or queryAttributes is nil")
     return -1
   end
-  local res = DeviceInfoRedis.readItem(DevAddr, queryAttributes) -- 从redis中读取
-  if res ~= -1 then
+  local res = DeviceInfoRedis.readItem({DevAddr = DevAddr}, queryAttributes) -- 从redis中读取
+  if res ~= nil then
     if res.NwkSKey == nil then -- 不存在
       local devInfo = {}
-      res = DeviceInfoMysql.readItem(DevAddr, consts.DEVICEINFO_CACHE_ATTRIBUTES) -- 从mysql中读取
+      res = DeviceInfoMysql.readItem({DevAddr = DevAddr}, consts.DEVICEINFO_CACHE_ATTRIBUTES) -- 从mysql中读取
       if res.AppKey == nil or res.AppEUI == nil then -- 没有AppEUI或者没有AppKey 则出错
         p("The Device was not registered in LoRa web")
         return -2
@@ -164,21 +189,21 @@ function getAndCacheDeviceInfo(DevAddr, queryAttributes)
         p("The OTAA Device was not registered through the join process")
         return -3
       end
-      -- DeviceRouting
+      -- DeviceRoutingMysql
       for k, v in pairs(res) do
         devInfo[k] = v
       end
-      res = DeviceRouting.readItem(DevAddr, consts.DEVICEROUTING_CACHE_ATTRIBUTES)
-      -- DeviceConfig
+      res = DeviceRoutingMysql.readItem({DevAddr = DevAddr}, consts.DEVICEROUTING_CACHE_ATTRIBUTES)
+      -- DeviceConfigMysql
       for k, v in pairs(res) do
         devInfo[k] = v
       end
-      res = DeviceConfig.readItem(DevAddr, consts.DEVICECONFIG_CACHE_ATTRIBUTES)
+      res = DeviceConfigMysql.readItem({DevAddr = DevAddr}, consts.DEVICECONFIG_CACHE_ATTRIBUTES)
       -- DeviceInfoRedis
       for k, v in pairs(res) do
         devInfo[k] = v
       end
-      res = DeviceInfoRedis.Update(DevAddr.DevAddr, devInfo) -- 更新所有的值,并添加不存在的值
+      res = DeviceInfoRedis.UpdateItem(DevAddr.DevAddr, devInfo) -- 更新所有的值,并添加不存在的值
       local resTmp = {
         NwkSKey = devInfo.NwkSKey,
         AppSKey = devInfo.AppSKey
@@ -194,7 +219,7 @@ function getAndCacheDeviceInfo(DevAddr, queryAttributes)
 end
 
 -- MIC值验证
-function macPayloadMICVerify(requiredFields, values, direction, phyPayloadJSON)
+local function macPayloadMICVerify(requiredFields, values, direction, phyPayloadJSON)
   if values == nil or requiredFields == nil or direction == nil or phyPayloadJSON == nil then
     p("inputs is nil")
     return -1
@@ -203,10 +228,15 @@ function macPayloadMICVerify(requiredFields, values, direction, phyPayloadJSON)
     p("The device was not registered in LoRa web")
     return -2
   end
+  local recvMic = utiles.BufferToHexString(phyPayloadJSON.mic)
   local NwkSKey = values.NwkSKey
   local micCal = phyUtils.micCalculator(requiredFields, NwkSKey, direction) -- mic计算
-  if micCal == phyPayloadJSON.mic then
+  micCal = utiles.BufferToHexString(micCal)
+  p("   recv mic:", recvMic)
+  p("   calc mic:", micCal)
+  if micCal == recvMic then
     -- MIC verification passing
+    p(" MIC verification passing")
     return values
   else
     p("MACPayload MIC mismatch")
@@ -305,7 +335,7 @@ function parser(phyPayloadRaw)
     end
 
     local queryAttributes = {"NwkSKey", "AppSKey"}
-    local res = getAndCacheDeviceInfo(requiredFields.DevAddr, queryAttributes)
+    local res = getAndCacheDeviceInfo(utiles.BufferToHexString(requiredFields.DevAddr), queryAttributes)
     res = macPayloadMICVerify(requiredFields, res, direction, phyPayloadJSON)
     return decryptFRMPayload(res, phyPayloadJSON, macPayloadJSON, requiredFields, direction)
   elseif consts.JS_MSG_TYPE_LIST[phyPayloadJSON.mhdrJSON.MType + 1] == consts.JOIN_REQ then -- Join Request消息
