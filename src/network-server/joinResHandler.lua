@@ -18,9 +18,31 @@ local function getIndexByVal(table, val)
   return 1 -- 没有找到则返回索引1
 end
 
+local tableFreq = {
+  470.300000,
+  470.500000,
+  470.700000,
+  470.900000,
+  471.100000,
+  471.300000,
+  471.500000,
+  471.700000
+}
+
+local CN470_STEPWIDTH_RX1_CHANNEL = 0.200000
+local CN470_FIRST_RX1_CHANNEL = 500.300000
+
+local function GetIndexTestFreq(table, val)
+  for i, v in pairs(table) do
+    if v == val then
+      return i - 1
+    end
+  end
+  return -1
+end
+
 -- 更新join请求设备路由信息
 local function updateJoinDeviceRouting(deviceStatus)
-
   -- "time":"2013-03-31T16:21:17.528002Z",
   -- "tmst":3512348611,
   -- "chan":2,
@@ -45,7 +67,7 @@ local function updateJoinDeviceRouting(deviceStatus)
       if RX1DROFFSETTABLE[DRUP[datr]][RX1DROFFSET] == DRDOWN[key] then
         return key
       end
-    end 
+    end
     return datr
   end
 
@@ -73,7 +95,8 @@ local function updateJoinDeviceRouting(deviceStatus)
           if freqPlanOffset == (consts.PLANOFFSET915 + 1) then
             return deviceStatus.chan
           else
-            return deviceStatus.freq
+            return CN470_FIRST_RX1_CHANNEL +
+              (GetIndexTestFreq(tableFreq, deviceStatus.freq) % 48) * CN470_STEPWIDTH_RX1_CHANNEL
           end
         end
       ),
@@ -81,11 +104,13 @@ local function updateJoinDeviceRouting(deviceStatus)
       datr = getDatr(deviceStatus.datr, res.RX1DRoffset),
       modu = deviceStatus.modu,
       codr = deviceStatus.codr,
-      imme = false,
+      imme = false, -- imme = true,
       ipol = false
     }
+    updateOpts.rfch = 0
     -- updateOpts.freq = 501.5 -- test TODO:
-    -- updateOpts.datr = "SF7BW125" -- test TODO:
+    updateOpts.datr = "SF7BW125" -- test TODO:
+
     local devInfo = {
       frequencyPlan = res.frequencyPlan,
       ADR = res.ADR,

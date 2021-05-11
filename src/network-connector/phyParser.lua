@@ -62,24 +62,29 @@ local function fhdrParser(macPayload)
   FCnt = utiles.BEToLE(FCnt)
   p("   FCnt:")
   utiles.printBuf(FCnt)
-  local fhdrEnd = consts.MP_FOPTS_OFFSET + 1 + FCtrlJSON.FOptsLen
-  local FOptsBuf = utiles.BufferSlice(macPayload, consts.MP_FOPTS_OFFSET + 1, fhdrEnd)
-  FOptsBuf = utiles.BEToLE(FOptsBuf)
-  p("   FOptsBuf:")
-  utiles.printBuf(FOptsBuf)
-  -- mac cmd解析 FOpts中携带mac命令序列的情况下
-  local FOptsJson = macCmdParser.parser(FOptsBuf)
-  if FOptsJson == nil then
-    p("macCmdParser.parser failed")
-    return nil
-  end
 
-  if FOptsJson.ansLen > consts.FOPTS_MAXLEN then
-    p("Invalid length of Request MACCommand in FOpts")
-    return nil
+  local FOpts = {}
+  if FCtrlJSON.FOptsLen > 0 then
+    local fhdrEnd = consts.MP_FOPTS_OFFSET + 1 + FCtrlJSON.FOptsLen
+    local FOptsBuf = utiles.BufferSlice(macPayload, consts.MP_FOPTS_OFFSET + 1, fhdrEnd)
+    FOptsBuf = utiles.BEToLE(FOptsBuf)
+    p("   FOptsBuf:")
+    utiles.printBuf(FOptsBuf)
+    -- mac cmd解析 FOpts中携带mac命令序列的情况下
+    local FOptsJson = macCmdParser.parser(FOptsBuf)
+    if FOptsJson == nil then
+      p("macCmdParser.parser failed")
+      return nil
+    end
+    if FOptsJson.ansLen > consts.FOPTS_MAXLEN then
+      p("Invalid length of Request MACCommand in FOpts")
+      return nil
+    end
+    FOpts = FOptsJson.cmdArr
+  else
+    p("   FCtrlJSON.FOptsLen = 0")
+    FOpts = {}
   end
-
-  local FOpts = FOptsJson.cmdArr
 
   return {
     DevAddr = DevAddr,
@@ -102,10 +107,14 @@ function macPayloadParser(macPayload)
     p("fhdr Parser failed")
     return nil
   end
-  local fhdrEnd = consts.MP_FOPTS_OFFSET + 1 + fhdrJSON.FCtrl.FOptsLen
+  local fhdrEnd = 0
+  if fhdrJSON.FCtrl.FOptsLen > 0 then
+    fhdrEnd = consts.MP_FOPTS_OFFSET + fhdrJSON.FCtrl.FOptsLen
+  else
+    fhdrEnd = consts.MP_FOPTS_OFFSET
+  end
   local fhdr = utiles.BufferSlice(macPayload, consts.MP_FHDR_OFFSET + 1, fhdrEnd)
-  p("   fhdr:")
-  utiles.printBuf(fhdr)
+  p("   fhdr:") utiles.printBuf(fhdr)
   local macPayloadJSON = {
     fhdr = fhdr, -- 原始数据
     fhdrJSON = fhdrJSON -- 解析后的数据
@@ -121,8 +130,17 @@ function macPayloadParser(macPayload)
       return nil
     else
       local FRMPayloadOffset = fhdrEnd + consts.FPORT_LEN
-      local FPort = utiles.BufferSlice(macPayload, fhdrEnd, FRMPayloadOffset)
-      local FRMPayload = utiles.BufferSlice(macPayload, FRMPayloadOffset, macPayload.length)
+      p(FRMPayloadOffset)
+      local FPort = utiles.BufferSlice(macPayload, fhdrEnd + 1, FRMPayloadOffset)
+      p("   FPort:")utiles.printBuf(FPort)
+      local FRMPayload = nil
+      if FRMPayloadOffset == macPayload.length then
+        FRMPayload = buffer:new(0)
+      else
+        FRMPayload = utiles.BufferSlice(macPayload, FRMPayloadOffset, macPayload.length)
+      end
+      local FRMPayload = utiles.BufferSlice(macPayload, FRMPayloadOffset + 1, macPayload.length)
+      p("   FRMPayload:", utiles.BufferToHexString(FRMPayload))
       if FRMPayload.length <= 0 then -- 出错
         p("FRMPayload must not be empty if FPort is given")
         return nil
@@ -247,7 +265,7 @@ end
 -- 解析FRMPayload字段
 function decryptFRMPayload(values, phyPayloadJSON, macPayloadJSON, requiredFields, direction)
   if values == nil or phyPayloadJSON == nil or macPayloadJSON == nil or requiredFields == nil or direction == nil then
-    return -1
+    return nil
   end
   local key
   local result = {
@@ -322,6 +340,9 @@ function parser(phyPayloadRaw)
     direction[1] = consts.BLOCK_DIR_CLASS.Up
 
     local macPayloadJSON = macPayloadParser(phyPayloadJSON.macPayload)
+    if macPayloadJSON == nil then
+      return nil
+    end
     -- MIC verification mic计算需要使用的参数
     local requiredFields = {
       MHDR = phyPayloadJSON.mhdr,
@@ -336,7 +357,9 @@ function parser(phyPayloadRaw)
 
     local queryAttributes = {"NwkSKey", "AppSKey"}
     local res = getAndCacheDeviceInfo(utiles.BufferToHexString(requiredFields.DevAddr), queryAttributes)
+    -- macPayload层mic校验
     res = macPayloadMICVerify(requiredFields, res, direction, phyPayloadJSON)
+    -- 解密FRMPayload层
     return decryptFRMPayload(res, phyPayloadJSON, macPayloadJSON, requiredFields, direction)
   elseif consts.JS_MSG_TYPE_LIST[phyPayloadJSON.mhdrJSON.MType + 1] == consts.JOIN_REQ then -- Join Request消息
     if phyPayloadJSON.macPayload.length ~= consts.JOINREQ_BASIC_LENGTH then -- 出错

@@ -123,7 +123,7 @@ function uplinkDataHandler(jsonData)
 
       if resuserID then
         -- local collectionName = consts.MONGO_USERCOLLECTION_PREFIX + resuserID
-        -- p("recv gateway stat data", uplinkDataJson)
+        p("recv gateway stat data", uplinkDataJson)
         return "other", nil
       else
         p("No UserID in Reids about the gateway")

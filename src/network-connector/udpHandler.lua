@@ -58,9 +58,20 @@ function parser(data)
     udpJSON.DataType = "PULL_DATA"
   elseif identifier == consts.UDP_ID_TX_ACK then
     udpJSON.gatewayId = utiles.BufferToHexString(recvData, consts.UDP_GW_ID_OFFSET + 1, consts.UDP_JSON_OBJ_OFFSET)
+    -- utiles.printBuf(recvData)
+    local txAckBuf = utiles.BufferSlice(recvData, 5, recvData.length)
+    -- p("   txAckBuf:")
+    -- utiles.printBuf(txAckBuf)
     udpJSON.txAckData = txAckParser(recvData:toString(consts.UDP_TX_ACK_PAYLOAD_OFFSET + 1))
     udpJSON.DataType = "TX_ACK"
 
+    -- 如果未报告任何错误，则“有效负载”字段包含值“ \ 0”的一个八位字节。
+    -- 如果报告了错误，则该字段包含JSON“错误”对象。
+    if udpJSON.txAckData ~= nil then
+      p("   txAckData:", udpJSON.txAckData)
+    else
+      p("   ack no error")
+    end
     p("Currently only processing tx ack data. ", udpJSON)
     return nil -- TODO: 当前不测试tx ack的数据
   else
@@ -72,7 +83,7 @@ function parser(data)
 end
 
 -- 下行处理打包数据
-function packager(requiredFields)
+local function packager(requiredFields)
   if requiredFields == nil then
     p("function <packager>, requiredFields param is nil")
     return nil
@@ -86,11 +97,12 @@ function packager(requiredFields)
   if requiredFields.identifier == consts.UDP_ID_PUSH_ACK then
     -- break
   elseif requiredFields.identifier == consts.UDP_ID_PULL_ACK then
+    -- p(" data:")utiles.printBuf(data)
     -- TODO: PULL_ACK的长度是 4 + 8(Gateway EUI) > consts.UDP_DOWNLINK_BASIC_LEN
-    -- data:writeUInt32BE(
-    --   consts.UDP_VERSION_OFFSET + 1 + consts.UDP_TOKEN_OFFSET + 1 + consts.UDP_IDENTIFIER_OFFSET + 1,
-    --   requiredFields.gatewayId
-    -- )
+    local idBuf = buffer:new(consts.GATEWAYID_LEN)
+    utiles.BufferFromHexString(idBuf, 1, requiredFields.gatewayId)
+    -- p(" idBuf:")utiles.printBuf(idBuf)
+    data = utiles.BufferConcat(data, idBuf)
   elseif requiredFields.identifier == consts.UDP_ID_PULL_RESP then
     local txpk = {
       txpk = requiredFields.txpk

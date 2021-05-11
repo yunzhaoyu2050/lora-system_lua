@@ -66,6 +66,7 @@ function micCalculator(requiredFields, key, direction)
   end
   if (requiredFields.FRMPayload) then
     msg = utiles.BufferConcat(msg, requiredFields.FRMPayload)
+    p("msg:", utiles.BufferToHexString(msg))
   end
   -- Build B0
   local block = basicVerifyBlock(requiredFields, "B", direction)

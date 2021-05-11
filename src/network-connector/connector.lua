@@ -6,6 +6,7 @@ local consts = require("../lora-lib/constants/constants.lua")
 local phyPackager = require("./phyPackager.lua")
 local basexx = require("../../deps/basexx/lib/basexx.lua")
 local utiles = require("../../utiles/utiles.lua")
+local timer = require('timer')
 
 -- connector模块任务
 
@@ -44,6 +45,9 @@ function UplinkTask()
       if ret ~= nil then
         udp.Send(ret, udpInfo)
         p("udp send <ACK> to gateway, udp-ip:", udpInfo.ip, "udp-port:", udpInfo.port, "message:<", ret, ">end")
+        if gatewayConfig.identifier == consts.UDP_ID_PULL_DATA then
+          return 0
+        end
       end
       -- 5. pushData数据解析
       if udpUlJSON.pushData ~= nil then
@@ -83,13 +87,19 @@ function DownlinkTask(message)
     local udpDlData = udpHandler.packager(message) -- udp层打包
     local udpInfo = gatewayInfoRedis.Read(message.gatewayId) -- 取得网关信息
     if udpInfo then
+      local rettimer
       local cliUdpInfo = {}
-      if message.identifier == consts.UDP_ID_PULL_DATA then -- TODO: 修正 PULL_RESP通过* pull_port *发送到网关。 因此，网关必须在可以接收任何PULL_RESP之前发送PULL_DATA。
-        cliUdpInfo.port = udpInfo.pullPort
-      else
-        cliUdpInfo.port = udpInfo.pushPort
+      -- if message.identifier == consts.UDP_ID_PULL_DATA then -- TODO:
+      --   cliUdpInfo.port = udpInfo.pullPort
+      -- else
+      --   cliUdpInfo.port = udpInfo.pushPort
+      -- end
+      if udpInfo.pullPort == nil then
+        -- PULL_RESP通过* pull_port *发送到网关。 因此，网关必须在可以接收任何PULL_RESP之前发送PULL_DATA。
+        p(" error: PULL_RESP is sent to the gateway through *pull_port*. Therefore, the gateway must send PULL_DATA before it can receive any PULL_RESP")
+        return -2
       end
-      -- cliUdpInfo.port = udpInfo.pullPort
+      cliUdpInfo.port = udpInfo.pullPort
       cliUdpInfo.ip = udpInfo.address
       p(
         "udp send message to gateway, udp-ip:",

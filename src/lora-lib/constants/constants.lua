@@ -190,7 +190,7 @@ function consts.Init()
   -- Default configuration of txpk
   consts.TXPK_CONFIG = {
     TMST_OFFSET = 1000000,
-    TMST_OFFSET_JOIN = 5000000,
+    TMST_OFFSET_JOIN = 1000000, -- 5000000
     FREQ = {
       [1] = function(callBack)
         return callBack()
