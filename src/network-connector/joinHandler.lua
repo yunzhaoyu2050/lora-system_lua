@@ -2,7 +2,7 @@ local DeviceInfoMysql = require("../lora-lib/models/MySQLModels/DeviceInfo.lua")
 local consts = require("../lora-lib/constants/constants.lua")
 local buffer = require("buffer").Buffer
 local utiles = require("../../utiles/utiles.lua")
-local aesCmac = require("../../deps/node-aes-cmac-lua/lib/aes-cmac.lua").aesCmac
+local aesCmac = require("../../utiles/node-aes-cmac-lua/lib/aes-cmac.lua").aesCmac
 local crypto = require("../../deps/lua-openssl/lib/crypto.lua")
 
 local function MHDRPackager(mhdr)

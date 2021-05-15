@@ -1,9 +1,9 @@
 -- Design By https://github.com/allan-stewart/node-aes-cmac.git
 
-local crypto = require("../../lua-openssl/lib/crypto.lua")
+local crypto = require("../../../deps/lua-openssl/lib/crypto.lua")
 local bufferTools = require("./buffer-tools.lua")
 local buffer = require("buffer").Buffer
-local utiles = require("../../../utiles/utiles.lua")
+local utiles = require("../../utiles.lua")
 
 -- local const_Zero = "0000000000000000" --16 bits hex numbers
 local hex_Zero = "00000000000000000000000000000000"

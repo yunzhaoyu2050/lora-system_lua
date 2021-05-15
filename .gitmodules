@@ -1,0 +1,24 @@
+[submodule "deps/basexx"]
+	path = deps/basexx
+	url = https://github.com/aiq/basexx.git
+[submodule "deps/Dee_LuaADT"]
+	path = deps/Dee_LuaADT
+	url = https://github.com/yunzhaoyu2050/Dee_LuaADT.git
+[submodule "deps/lua-openssl"]
+	path = deps/lua-openssl
+	url = https://github.com/yunzhaoyu2050/lua-openssl.git
+[submodule "deps/luv"]
+	path = deps/luv
+	url = https://github.com/luvit/luv.git
+[submodule "deps/luvi"]
+	path = deps/luvi
+	url = https://github.com/luvit/luvi.git
+[submodule "deps/luvit"]
+	path = deps/luvit
+	url = https://github.com/luvit/luvit.git
+[submodule "deps/lualogging"]
+	path = deps/lualogging
+	url = https://github.com/yunzhaoyu2050/lualogging.git
+[submodule "test/lora-motes-emulator"]
+	path = test/lora-motes-emulator
+	url = https://github.com/yunzhaoyu2050/lora-motes-emulator.git

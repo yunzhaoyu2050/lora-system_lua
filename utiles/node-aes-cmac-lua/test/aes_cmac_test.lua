@@ -3,7 +3,7 @@ p("debug open, listen: " .. "localhost" .. ",port: " .. 9966)
 local uv = require("luv")
 uv.sleep(5000)
 
-local utiles = require("../../../utiles/utiles.lua")
+local utiles = require("../../utiles.lua")
 local aesCmac = require("../lib/aes-cmac.lua").aesCmac
 local buffer = require("buffer").Buffer
 

@@ -1,7 +1,7 @@
 local utiles = require("../../utiles/utiles.lua")
 local buffer = require("buffer").Buffer
 local consts = require("../lora-lib/constants/constants.lua")
-local aesCmac = require("../../deps/node-aes-cmac-lua/lib/aes-cmac.lua").aesCmac
+local aesCmac = require("../../utiles/node-aes-cmac-lua/lib/aes-cmac.lua").aesCmac
 local crypto = require("../../deps/lua-openssl/lib/crypto.lua")
 -- const { consts, utils } = require('../lora-lib');
 -- const cmac = require('node-aes-cmac').aesCmac;
