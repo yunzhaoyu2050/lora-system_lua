@@ -325,7 +325,7 @@ function DeviceConfig.UpdateItem(appoint, item)
       break
     else
       -- 不存在该条目需要将其新添加进去
-      DeviceConfig.Write(inV, item)
+      DeviceConfig.Update(inV, item)
       break
     end
   end
@@ -368,7 +368,7 @@ function DeviceConfig.Init()
   DeviceConfig.hashTable = json.parse(chunk)
   -- 定时5s写入文件一次
   timer.setInterval(
-    5000,
+    2000,
     function()
       SynchronousData()
     end

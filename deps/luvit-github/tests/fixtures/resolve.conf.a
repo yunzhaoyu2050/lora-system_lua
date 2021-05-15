@@ -1,8 +1,0 @@
-## Comment
-; Another comment
-notnameserver 2001:db8::a
-nameserver 192.168.0.1
-somegarbage
-nameserver ::1
-nameserver notanip
-nameserver ::2 

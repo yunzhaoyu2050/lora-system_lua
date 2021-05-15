@@ -32,7 +32,11 @@ function process(data)
         return DataConverter.joinAcceptHandler(retData) -- Join Server --> Network Server
       end,
       ["AppPubToServer"] = function()
-        -- Application Server ---> Network Server
+        if retData.DevAddr == nil or retData.FRMPayload == nil then
+          p("Invalid message from kafka, Message ${JSON.stringify(message)}")
+          return nil
+        end
+        return DataConverter.applicationAcceptHandler(retData) -- Application Server ---> Network Server
       end,
       [utiles.Default] = function()
         p("data.type is error", retData)

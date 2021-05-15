@@ -3,7 +3,7 @@ local mysqlDeviceConfig = require("../lora-lib/models/MySQLModels/DeviceConfig.l
 local mysqlDeviceInfo = require("../lora-lib/models/MySQLModels/DeviceInfo.lua")
 local buffer = require("buffer").Buffer
 local utiles = require("../../utiles/utiles.lua")
-local bit = require("bit")
+-- local bit = require("bit")
 local crypto = require("../../deps/lua-openssl/lib/crypto.lua")
 local rand = crypto.rand
 -- local lcrypto = require("../../deps/luvit-github/deps/tls/lcrypto.lua")
@@ -166,22 +166,7 @@ local function readDevice(queryOpt)
   end
 end
 
-local function getFreqPlan(freq, freqList)
-  if freq >= freqList[1] and freq < freqList[2] then
-    return freqList[1]
-  elseif freq >= freqList[2] and freq < freqList[3] then
-    return freqList[2]
-  elseif freq >= freqList[3] and freq < freqList[4] then
-    return freqList[3]
-  elseif freq >= freqList[4] then
-    return freqList[4]
-  else
-    p("freq is not int freqList", freq)
-    return nil
-  end
-end
-
--- join server模块 join请求数据处理单元
+-- join server模块 join请求流程 数据处理单元
 function handler(rxpk)
   p("join request message process...")
   local joinReqPayload = rxpk.data
@@ -194,9 +179,9 @@ function handler(rxpk)
   local appKeyQueryOpt = {
     DevEUI = utiles.BufferToHexString(joinReq.DevEUI)
   }
-  local _freqList = consts.FREQUENCY_PLAN_LIST
+  -- local _freqList = consts.FREQUENCY_PLAN_LIST
 
-  local frequencyPlan = getFreqPlan(freq, _freqList)
+  local frequencyPlan = consts.GetISMFreqPLanOffset(freq)
   _defaultConf = consts.DEFAULTCONF[frequencyPlan]
 
   -- Query the existance of DevEUI
@@ -233,26 +218,38 @@ function handler(rxpk)
   end
 
   local updateDevInfo = function(DevAddr)
-
-    local OptNeg = 0 -- 默认lorawan协议版本1.0版本 
-    local res = mysqlDeviceInfo.readItem({DevAddr = DevAddr}, {"ProtocolVersion"})
+    local OptNeg = 0 -- 默认lorawan协议版本1.0版本
+    local res =
+      mysqlDeviceInfo.readItem({DevAddr = DevAddr}, {"ProtocolVersion", "RX1DRoffset", "RX1Delay", "RX2DataRate"})
     if res.ProtocolVersion ~= nil then
       if res.ProtocolVersion == "1.1" then
         OptNeg = 1
       end
     end
 
-    local RX1DRoffset = 4 -- TODO: RX1DRoffset值写死需确定
+    local RX1DRoffset = 1 -- TODO: RX1DRoffset值写死需确定
+    if res.RX1DRoffset ~= nil then
+      RX1DRoffset = res.RX1DRoffset
+    end
     local RX2DR = 0 -- TODO: RX2DR值写死需确定
+    if res.RX2DataRate ~= nil then
+      RX2DR = res.RX2DataRate
+    end
     local delay = 1 -- TODO: delay值写死需确定
+    if res.RX1Delay ~= nil  then
+      RX2DR = res.RX1Delay
+    end
+    
     _DLSettings = DLSettingsPackager(OptNeg, RX1DRoffset, RX2DR)
+
     _RxDelay = buffer:new(consts.RXDELAY_LEN)
     utiles.BufferFill(_RxDelay, 0, 1, _RxDelay.length)
     _RxDelay = RxDelayPackager(_RxDelay, delay)
 
     _acpt = genAcpt(joinReq, _DLSettings, _RxDelay) -- 得到粗打包的数据
 
-    local deviceInfoUpd = {       -- mysql需要更新的内容
+    local deviceInfoUpd = {
+      -- mysql需要更新的内容
       DevAddr = DevAddr,
       DevNonce = utiles.BufferToHexString(joinReq.DevNonce),
       AppNonce = utiles.BufferToHexString(_AppNonce),
@@ -269,7 +266,9 @@ function handler(rxpk)
     _DevAddr = DevAddr
     _defaultConf.DevAddr = DevAddr
     _defaultConf.RX1DRoffset = RX1DRoffset
+
     mysqlDeviceInfo.UpdateItem(appKeyQueryOpt, deviceInfoUpd) -- mysql设备信息更新
+
     return initDeviceConf(_defaultConf) -- mysql设备配置信息更新
   end
 

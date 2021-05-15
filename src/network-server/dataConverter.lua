@@ -8,6 +8,10 @@ local DeviceInfoRedis = require("../lora-lib/models/RedisModels/DeviceInfo.lua")
 local connector = require("../network-connector/connector.lua")
 local buffer = require("buffer").Buffer
 local crypto = require("../../deps/lua-openssl/lib/crypto.lua")
+local utiles = require("../../utiles/utiles.lua")
+local DeviceInfoMysql = require("../lora-lib/models/MySQLModels/DeviceInfo.lua")
+
+local appDataHandler = require("./appDataHandler.lua")
 -- local lcrypto = require("../../deps/luvit-github/deps/tls/lcrypto.lua")
 -- local appDataHandler = require("./appDataHandler.lua")
 
@@ -37,7 +41,7 @@ local crypto = require("../../deps/lua-openssl/lib/crypto.lua")
 --   return gatewayStatObject;
 -- };
 
-function rxInfoConverter(uplinkDataJson)
+local function rxInfoConverter(uplinkDataJson)
   local rfPacketObject = {}
   for k, v in pairs(uplinkDataJson.rxpk) do
     if k ~= "data" and k ~= "raw" then
@@ -59,14 +63,21 @@ local function appDataConverter(uplinkDataJson)
     appDataObject.srcID = ""
   end
   local appFRMPayloadBuf = appDataObject.MACPayload.FRMPayload
-  if appFRMPayloadBuf then
-    local res = DeviceInfoRedis.readItem({DevAddr = appDataObject.MACPayload.FHDR.DevAddr}, {"FCntUp", "AppEUI"})
-    if res.FCntUp then
+  if appFRMPayloadBuf ~= nil then
+    local devaddr = utiles.BufferToHexString(appDataObject.MACPayload.FHDR.DevAddr)
+    local res = DeviceInfoRedis.readItem({DevAddr = devaddr}, {"FCntUp"})
+    if res.FCntUp ~= nil then
       appDataObject.FCntUp = res.FCntUp
-      appDataObject.AppEUI = res.AppEUI
-      return appDataObject
+      res = DeviceInfoMysql.readItem({DevAddr = devaddr}, {"AppEUI"})
+      if res.AppEUI ~= nil then
+        appDataObject.AppEUI = res.AppEUI
+        return appDataObject
+      else
+        p("DevAddr AppEUI does not exist in mysql DeviceInfo")
+        return nil
+      end
     else
-      p("DevAddr does not exist in DeviceInfo")
+      p("DevAddr FCntUp does not exist in redis DeviceInfo")
       return nil
     end
   end
@@ -92,16 +103,38 @@ function uplinkDataHandler(jsonData)
 
       if messageType == consts.UNCONFIRMED_DATA_UP or messageType == consts.CONFIRMED_DATA_UP then -- Application message
         p("receive App data message")
+        local rxInfoArr = rxInfoConverter(uplinkDataJson)
         local appObj = appDataConverter(uplinkDataJson)
         if appObj ~= nil then
-          return appDataHandler.handle(rxInfoArr, appObj)
+          local uplinkInfo = appDataHandler.handle(rxInfoArr, appObj) -- 将Application message推送至app模块处理
+          if uplinkInfo == nil then
+            return "other", nil
+          end
+          -- Data messages 用来传输MAC命令和应用数据， 这两种命令也可以放在单个消息中发送。
+          -- Confirmed-data message 接收者需要应答。 Unconfirmed-data message 接收者则不需要应
+          -- 答。 Proprietary messages 用来处理非标准的消息格式， 不能和标准消息互通， 只能用来和
+          -- 具有相同拓展格式的消息进行通信。
+          if messageType == consts.UNCONFIRMED_DATA_UP then
+            p("MType is UNCONFIRMED_DATA_UP, No need to send downstream data")
+            return "other", nil
+          elseif messageType == consts.CONFIRMED_DATA_UP then
+            p("MType is CONFIRMED_DATA_UP ...")
+          end
+
+          if uplinkInfo and uplinkInfo.appObj then
+            local uplinkInfoAppObj = uplinkInfo.appObj
+            local appEUIStr = uplinkInfoAppObj.AppEUI
+            ret = downlinkDataHandler.appDataDownlink(uplinkInfoAppObj, downlinkAppConverter)
+          end
+          p("app module _> server module, send app accept message")
+          return "AppPubToServer", ret
         end
         return "other", nil
       end
 
       if messageType == consts.JS_MSG_TYPE.request then -- Join request message
         p("receive Join request message")
-        ret = joinResHandler.joinRequestHandle(uplinkDataJson) -- 把业务数据推送至join-server模块
+        ret = joinResHandler.joinRequestHandle(uplinkDataJson) -- 将Join request message推送至join-server模块
         if ret == nil then
           return "other", nil
         end
@@ -109,8 +142,6 @@ function uplinkDataHandler(jsonData)
         return "JoinPubToServer", ret -- 把数据推送至network-connector模块
       end
     elseif uplinkDataJson.stat ~= nil then -- Recive Stat data
-      -- });
-      -- // });
       -- Recive PUSH data from Gateway
       -- TODO: 网关状态数据统计
       local gatawaySata = gatewayStatConverter.handle(uplinkDataJson)
@@ -147,91 +178,100 @@ function uplinkDataHandler(jsonData)
   end
 end
 
--- DataConverter.prototype.downlinkAppConverter = function (txJson, downlinkJson, uplinkInfo) {
---   let _this = this;
---   const outputObject = {};
---   outputObject.version = uplinkInfo.version;
---   if (uplinkInfo.srcID && uplinkInfo.srcID.length > 0) {
---     outputObject.dstID = uplinkInfo.srcID;
---   }
+function downlinkAppConverter(txJson, downlinkJson, uplinkInfo)
+  local outputObject = {}
+  outputObject.version = uplinkInfo.version
+  if uplinkInfo.srcID and uplinkInfo.srcID.length > 0 then
+    outputObject.dstID = uplinkInfo.srcID
+  end
 
---   outputObject.token = crypto.randomBytes(consts.UDP_TOKEN_LEN);
---   outputObject.identifier = Buffer.alloc(consts.UDP_IDENTIFIER_LEN);
---   outputObject.identifier.writeUInt8(consts.UDP_ID_PULL_RESP, 'hex');
---   outputObject.gatewayId = txJson.gatewayId;
+  outputObject.token = crypto.randomBytes(consts.UDP_TOKEN_LEN)
+  outputObject.identifier = buffer:new(consts.UDP_IDENTIFIER_LEN)
+  outputObject.identifier.writeUInt8(consts.UDP_ID_PULL_RESP, "hex")
+  outputObject.gatewayId = txJson.gatewayId
 
---   function generateTxpkJson() {
---     let tempdata = {};
---     let MHDRJson = {};
---     let MACPayloadJson = {};
---     let FHDRJson = {};
---     let FCtrlJson = {};
---     const messageType = uplinkInfo.MHDR.MType;
+  local function generateTxpkJson()
+    local tempdata = {}
+    local MHDRJson = {}
+    local MACPayloadJson = {}
+    local FHDRJson = {}
+    local FCtrlJson = {}
+    local messageType = uplinkInfo.MHDR.MType
 
---     if (messageType === consts.CONFIRMED_DATA_UP) {
---       MHDRJson.MType = consts.CONFIRMED_DATA_DOWN;
---       FCtrlJson.ACK = 1;
---     }
+    if messageType == consts.CONFIRMED_DATA_UP then
+      MHDRJson.MType = consts.CONFIRMED_DATA_DOWN
+      FCtrlJson.ACK = 1
+    end
 
---     if (messageType === consts.UNCONFIRMED_DATA_UP) {
---       MHDRJson.MType = consts.UNCONFIRMED_DATA_DOWN;
---       FCtrlJson.ACK = 0;
---     }
+    if messageType == consts.UNCONFIRMED_DATA_UP then
+      MHDRJson.MType = consts.UNCONFIRMED_DATA_DOWN
+      FCtrlJson.ACK = 0
+    end
 
---     MHDRJson.Major = uplinkInfo.MHDR.Major;
---     tempdata.MHDR = MHDRJson;
+    MHDRJson.Major = uplinkInfo.MHDR.Major
+    tempdata.MHDR = MHDRJson
 
---     // if (txJson.DeviceConfig.ADR || txJson.DeviceConfig.ADR === false) {
---     //   FCtrlJson.ADR = txJson.DeviceConfig.ADR;
---     if (txJson.ADR || txJson.ADR === false) {
---       FCtrlJson.ADR = txJson.ADR;
---     } else {
---       FCtrlJson.ADR = uplinkInfo.MACPayload.FHDR.FCtrl.ADR;
---     }
+    if txJson.ADR or txJson.ADR == false then
+      FCtrlJson.ADR = txJson.ADR
+    else
+      FCtrlJson.ADR = uplinkInfo.MACPayload.FHDR.FCtrl.ADR
+    end
 
---     FCtrlJson.FPending = downlinkJson.FPending ? downlinkJson.FPending : 0;
---     FCtrlJson.FOptsLen = downlinkJson.FOptsLen ? downlinkJson.FOptsLen : 0;
+    if downlinkJson.FPending > 0 then
+      FCtrlJson.FPending = downlinkJson.FPending
+    else
+      FCtrlJson.FPending = 0
+    end
+    if downlinkJson.FOptsLen > 0 then
+      FCtrlJson.FOptsLen = downlinkJson.FOptsLen
+    else
+      FCtrlJson.FOptsLen = 0
+    end
 
---     FHDRJson.DevAddr = uplinkInfo.MACPayload.FHDR.DevAddr;
---     FHDRJson.FCtrl = FCtrlJson;
---     FHDRJson.FCnt = Buffer.alloc(consts.FCNT_LEN);
---     // FHDRJson.FCnt.writeUInt32BE(txJson.DeviceInfo.AFCntDown);
---     FHDRJson.FCnt.writeUInt32BE(txJson.AFCntDown);
+    FHDRJson.DevAddr = uplinkInfo.MACPayload.FHDR.DevAddr
+    FHDRJson.FCtrl = FCtrlJson
+    FHDRJson.FCnt = buffer:new(consts.FCNT_LEN)
+    -- // FHDRJson.FCnt.writeUInt32BE(txJson.DeviceInfo.AFCntDown);
+    FHDRJson.FCnt.writeUInt16BE(1, txJson.AFCntDown) -- writeUInt32BE
 
---     FHDRJson.FOpts = downlinkJson.FOpts ? downlinkJson.FOpts : [];
+    if downlinkJson.FOpts then
+      FHDRJson.FOpts = downlinkJson.FOpts
+    else
+      FHDRJson.FOpts = buffer:new(0)
+    end
 
---     MACPayloadJson.FHDR = FHDRJson;
+    MACPayloadJson.FHDR = FHDRJson
 
---     if (downlinkJson.isMacCmdInFRM && downlinkJson.FRMPayload.length > 0) {
---       MACPayloadJson.FPort = consts.MACCOMMANDPORT;
---       MACPayloadJson.FRMPayload = downlinkJson.FRMPayload;
---     } else if (downlinkJson.FRMPayload.length > 0) {
---       MACPayloadJson.FPort = uplinkInfo.MACPayload.FPort;
---       MACPayloadJson.FRMPayload = downlinkJson.FRMPayload;
---     } else {
---       MACPayloadJson.FPort = uplinkInfo.MACPayload.FPort;
---     }
+    if downlinkJson.isMacCmdInFRM and downlinkJson.FRMPayload.length > 0 then
+      MACPayloadJson.FPort = consts.MACCOMMANDPORT
+      MACPayloadJson.FRMPayload = downlinkJson.FRMPayload
+    elseif downlinkJson.FRMPayload.length > 0 then
+      MACPayloadJson.FPort = uplinkInfo.MACPayload.FPort
+      MACPayloadJson.FRMPayload = downlinkJson.FRMPayload
+    else
+      MACPayloadJson.FPort = uplinkInfo.MACPayload.FPort
+    end
 
---     tempdata.MACPayload = MACPayloadJson;
+    tempdata.MACPayload = MACPayloadJson
 
---     return {
---       imme: txJson.imme,
---       tmst: txJson.tmst,
---       freq: txJson.freq,
---       rfch: txJson.rfch,
---       powe: txJson.powe,
---       datr: txJson.datr,
---       modu: txJson.modu,
---       codr: txJson.codr,
---       ipol: txJson.ipol,
---       data: tempdata,
---     };
---   }
+    return {
+      imme = txJson.imme,
+      tmst = txJson.tmst,
+      freq = txJson.freq,
+      rfch = txJson.rfch,
+      powe = txJson.powe,
+      datr = txJson.datr,
+      modu = txJson.modu,
+      codr = txJson.codr,
+      ipol = txJson.ipol,
+      data = tempdata
+    }
+  end
 
---   outputObject.txpk = generateTxpkJson();
+  outputObject.txpk = generateTxpkJson()
 
---   return BluebirdPromise.resolve(outputObject);
--- };
+  return outputObject
+end
 
 local function joinRfConverter(joinDataJson) -- 取出rf层数据信息
   local rfPacketObject = {}
@@ -283,13 +323,14 @@ function joinAcceptHandler(joinAcceptJson)
   return "other", res
 end
 
--- DataConverter.prototype.applicationAcceptHandler = function (applicationAcceptJson) {
---   let _this = this;
---   let devAddr = applicationAcceptJson.DevAddr.toString('hex');
---   let FRMPayload = applicationAcceptJson.FRMPayload.toString('hex');
---   const msgQueKey = consts.DOWNLINK_MQ_PREFIX + devAddr;
---   return _this.redisConnMsgQue.produceByHTTP(msgQueKey, FRMPayload);
--- }
+-- app-accept消息下行数据处理单元
+function applicationAcceptHandler(applicationAcceptJson)
+  -- let _this = this;
+  local devAddr = utiles.BufferToHexString(applicationAcceptJson.DevAddr)
+  local FRMPayload = applicationAcceptJson.FRMPayload
+  -- const msgQueKey = consts.DOWNLINK_MQ_PREFIX + devAddr;
+  return _this.redisConnMsgQue.produceByHTTP(msgQueKey, FRMPayload) -- 将处理好的数据发给connector模块
+end
 
 -- DataConverter.prototype.mongooseSave = function (collectionName, mongoSavedObj) {
 
@@ -314,5 +355,6 @@ end
 -- module.exports = DataConverter;
 return {
   uplinkDataHandler = uplinkDataHandler,
-  joinAcceptHandler = joinAcceptHandler
+  joinAcceptHandler = joinAcceptHandler,
+  applicationAcceptHandler = applicationAcceptHandler
 }

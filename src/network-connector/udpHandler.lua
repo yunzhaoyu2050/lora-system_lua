@@ -2,12 +2,21 @@ local consts = require("../lora-lib/constants/constants.lua")
 local phyParser = require("./phyParser.lua")
 local json = require("json")
 local buffer = require("buffer").Buffer
-local ffi = require("ffi")
 local utiles = require("../../utiles/utiles.lua")
 
 local function txAckParser(txAckData)
   local txAckJSON
   txAckJSON = json.parse(txAckData)
+---------------------------------------error------------------------------------------
+-- Text              Description
+-- TOO_LATE,         Rejected because it was already too late to program this packet for downlink
+-- TOO_EARLY,        Rejected because downlink packet timestamp was received by the gateway too long before the scheduled transmission time
+-- COLLISION_PACKET, Rejected because there was already a packet programmed in requested timeframe
+-- COLLISION_BEACON, Rejected because there was already a beacon planned in requested timeframe
+-- TX_FREQ,          Rejected because requested frequency is not supported by TX RF chain
+-- TX_POWER,         Rejected because requested power is not supported by gateway
+-- GPS_UNLOCKED,     Rejected because GPS is unlocked, so GPS timestamp cannot be used
+--         Table 10: Description of TX_ACK error values
   return txAckJSON
 end
 
@@ -110,6 +119,8 @@ local function packager(requiredFields)
     if requiredFields.dstID ~= nil then
       txpk.dstID = requiredFields.dstID
     end
+    txpk.txpk.brd = 0
+    txpk.txpk.ant = 0
     requiredFields.payload = json.stringify(txpk)
     local payloadBuf = buffer:new(#requiredFields.payload)
     utiles.BufferWrite(payloadBuf, 1, requiredFields.payload, #requiredFields.payload) -- consts.UDP_VERSION_OFFSET + consts.UDP_TOKEN_OFFSET + consts.UDP_IDENTIFIER_OFFSET + 1

@@ -19,6 +19,7 @@ function Models.Init()
     p("MySQLModelsAppInfo init failed")
     return -1
   end
+  p("MySQLModelsAppInfo init success")
   ret = MySQLModelsDeviceInfo.Init()
   if ret ~= 0 then
     p("MySQLModelsDeviceInfo init failed")

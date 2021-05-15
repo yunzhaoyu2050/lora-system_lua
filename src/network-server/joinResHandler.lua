@@ -1,47 +1,12 @@
--- local mqHandle = require("../src/common/message_queue.lua")
 local joinServer = require("../join-server/join.lua")
 local consts = require("../lora-lib/constants/constants.lua")
 local MySQLDeviceConfig = require("../lora-lib/models/MySQLModels/DeviceConfig.lua")
 local MySQLDeviceInfo = require("../lora-lib/models/MySQLModels/DeviceInfo.lua")
 local MySQLDeviceRouting = require("../lora-lib/models/MySQLModels/DeviceRouting.lua")
 local RedisDeviceInfo = require("../lora-lib/models/RedisModels/DeviceInfo.lua")
-local buffer = require("buffer").Buffer
-local utiles = require("../../utiles/utiles.lua")
+local config = require("../../server_cfg.lua")
 
-local function getIndexByVal(table, val)
-  for i, v in pairs(table) do
-    if v == val then
-      return i
-    end
-  end
-  p("no find index")
-  return 1 -- 没有找到则返回索引1
-end
-
-local tableFreq = {
-  470.300000,
-  470.500000,
-  470.700000,
-  470.900000,
-  471.100000,
-  471.300000,
-  471.500000,
-  471.700000
-}
-
-local CN470_STEPWIDTH_RX1_CHANNEL = 0.200000
-local CN470_FIRST_RX1_CHANNEL = 500.300000
-
-local function GetIndexTestFreq(table, val)
-  for i, v in pairs(table) do
-    if v == val then
-      return i - 1
-    end
-  end
-  return -1
-end
-
--- 更新join请求设备路由信息
+-- join请求流程 - 下行处理 - 更新设备路由信息
 local function updateJoinDeviceRouting(deviceStatus)
   -- "time":"2013-03-31T16:21:17.528002Z",
   -- "tmst":3512348611,
@@ -57,34 +22,41 @@ local function updateJoinDeviceRouting(deviceStatus)
   -- "size":32,
 
   local freqPlanOffset
-
-  local function getDatr(datr, RX1DROFFSET)
-    local dr = consts.DR_PARAM
-    local RX1DROFFSETTABLE = dr.RX1DROFFSETTABLE[freqPlanOffset]
-    local DRUP = dr.DRUP[freqPlanOffset]
-    local DRDOWN = dr.DRDOWN[freqPlanOffset]
-    for key, _ in pairs(DRDOWN) do
-      if RX1DROFFSETTABLE[DRUP[datr]][RX1DROFFSET] == DRDOWN[key] then
-        return key
-      end
-    end
-    return datr
-  end
-
   local whereOpts = {DevAddr = deviceStatus.DevAddr}
 
   local res = MySQLDeviceConfig.readItem(whereOpts) -- mysql DeviceConfig
   if res then
     if res.frequencyPlan == nil then
       p("DevAddr does not exist frequencyPlan in MySQL DeviceConfig")
-      return -2
-    end
-    if res.RX1DRoffset == nil and res.RX1DRoffset ~= 0 then
-      p("DevAddr does not exist RX1DRoffset in MySQL DeviceConfig")
-      return -3
+      return nil
     end
 
-    freqPlanOffset = getIndexByVal(consts.FREQUENCY_PLAN_LIST, res.frequencyPlan)
+    if res.RX1DRoffset == nil and res.RX1DRoffset ~= 0 then
+      p("DevAddr does not exist RX1DRoffset in MySQL DeviceConfig")
+      return nil
+    end
+
+    local immeVal = false
+    local ipolVal = false
+    local NcrcVal = nil
+    local rfchVal = 0
+    if config.GetEnableImme() ~= nil then
+      immeVal = config.GetEnableImme()
+    end
+    if config.GetEnableIpol() ~= nil then
+      ipolVal = config.GetEnableIpol()
+    end
+    if config.GerEnableNcrc() ~= nil then
+      NcrcVal = config.GerEnableNcrc()
+    end
+    if config.GerEnableRfch() ~= nil then
+      rfchVal = config.GerEnableRfch()
+    end
+
+    freqPlanOffset = consts.GetISMFreqPLanOffset(deviceStatus.freq)
+    if freqPlanOffset == "" then
+      return nil
+    end
 
     local updateOpts = {
       DevAddr = deviceStatus.DevAddr,
@@ -92,24 +64,23 @@ local function updateJoinDeviceRouting(deviceStatus)
       tmst = deviceStatus.tmst + consts.TXPK_CONFIG.TMST_OFFSET_JOIN,
       freq = consts.TXPK_CONFIG.FREQ[freqPlanOffset](
         function()
-          if freqPlanOffset == (consts.PLANOFFSET915 + 1) then
-            return deviceStatus.chan
-          else
-            return CN470_FIRST_RX1_CHANNEL +
-              (GetIndexTestFreq(tableFreq, deviceStatus.freq) % 48) * CN470_STEPWIDTH_RX1_CHANNEL
-          end
+          return deviceStatus.freq
         end
       ),
-      powe = consts.TXPK_CONFIG.POWE[freqPlanOffset],
-      datr = getDatr(deviceStatus.datr, res.RX1DRoffset),
+      powe = consts.TXPK_CONFIG.POWE[freqPlanOffset](),
+      datr = consts.GetDatr(deviceStatus.datr, res.RX1DRoffset, freqPlanOffset),
       modu = deviceStatus.modu,
       codr = deviceStatus.codr,
-      imme = false, -- imme = true,
-      ipol = false
+      imme = immeVal,
+      ipol = ipolVal,
+      rfch = rfchVal
     }
-    updateOpts.rfch = 0
-    -- updateOpts.freq = 501.5 -- test TODO:
-    updateOpts.datr = "SF7BW125" -- test TODO:
+    updateOpts.brd = 0
+    updateOpts.ant = 0
+
+    if NcrcVal ~= nil then
+      updateOpts.NcrcVal = NcrcVal
+    end
 
     local devInfo = {
       frequencyPlan = res.frequencyPlan,
@@ -120,8 +91,9 @@ local function updateJoinDeviceRouting(deviceStatus)
     if res.ADR == nil then
       devInfo.ADR = false
     end
+
     if res.RX1Delay == nil then
-      devInfo.RX1Delay = 0
+      devInfo.RX1Delay = consts.DEFAULT_RX1DELAY -- 1s
     end
 
     local query = {
@@ -129,34 +101,34 @@ local function updateJoinDeviceRouting(deviceStatus)
     }
 
     p("   update mysql device routing info:", updateOpts)
-
     local res = MySQLDeviceRouting.UpdateItem(query, updateOpts)
     if res < 0 then
-      return -2
+      return nil
     end
+
     res = MySQLDeviceInfo.readItem(query, consts.DEVICEINFO_CACHE_ATTRIBUTES)
-    -- p("function <MySQLDeviceInfo.readItem>:", res)
     for k, v in pairs(res) do
       devInfo[k] = v
     end
+
     res = MySQLDeviceRouting.readItem(query, consts.DEVICEROUTING_CACHE_ATTRIBUTES)
     for k, v in pairs(res) do
       devInfo[k] = v
     end
+
     res = RedisDeviceInfo.UpdateItem({DevAddr = updateOpts.DevAddr}, devInfo)
     -- p("function <RedisDeviceInfo.UpdateItem>:", res)
     return res
   end
   p("DevAddr does not exist in DeviceConfig")
-  return -3
+  return nil
 end
 
--- join 下行数据处理
+-- join请求流程 - 下行数据处理
 function handler(convertedData)
-  -- return BluebirdPromise.all([
+  -- return
   --   _this.DeviceStatus.createItem(convertedData),
   --   _this.updateJoinDeviceRouting(convertedData),
-  -- ]);
   return updateJoinDeviceRouting(convertedData) -- 网关与服务器之间的数据
 end
 

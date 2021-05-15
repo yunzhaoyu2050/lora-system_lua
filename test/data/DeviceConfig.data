@@ -20,13 +20,13 @@
   "00516a59": {
     "ChDrRange": "5050505050505050",
     "ChMask": "00FF",
-    "RX1CFList": "330A6833029832FAC832F2F832EB2832E35832DB8832D3B8",
-    "MaxEIRP": 12.15,
-    "RX1DRoffset": 4,
-    "RX2Freq": 434.665,
+    "RX1CFList": "",
+    "MaxEIRP": 27,
+    "RX1DRoffset": 1,
+    "RX2Freq": 474.665,
     "RX2DataRate": 0,
-    "CFList": "330A6833029832FAC832F2F832EB2832E35832DB8832D3B8",
+    "CFList": "",
     "DevAddr": "00516a59",
-    "frequencyPlan": 433
+    "frequencyPlan": 470.3
   }
 }

@@ -466,6 +466,12 @@ function DeviceInfo.UpdateItem(appoint, item)
   return 0
 end
 
+function DeviceInfo.IncreaseAfcntdown(devAddr)
+  local res = DeviceInfo.readItem({DevAddr = devAddr}, {"AFCntDown"})
+  res.AFCntDown = res.AFCntDown + 1
+  return DeviceInfo.UpdateItem({DevAddr = devAddr}, {AFCntDown = res.AFCntDown})
+end
+
 -- 清空hash表
 function DeviceInfo.Clear()
   DeviceInfo.hashTable = nil

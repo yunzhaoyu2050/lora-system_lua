@@ -12,7 +12,14 @@ local _cfi = {
   },
   loraWan = {
     fcntCheckEnable = nil,
-    downlinkDataDelay = nil
+    downlinkDataDelay = nil,
+  },
+  gateWay = {
+    cmdGatewwayTxPowe = nil,
+    enableImme = nil,
+    enableIpol = nil,
+    enableNcrc = nil,
+    enableRfch = nil,
   }
 }
 
@@ -26,6 +33,11 @@ local function _setConfigFile(tcfg)
   _cfi.udp.ip = tcfg.udp.ip or "127.0.0.1"
   _cfi.loraWan.fcntCheckEnable = tcfg.loraWan.fcntCheckEnable or true
   _cfi.loraWan.downlinkDataDelay = tcfg.loraWan.downlinkDataDelay or 200
+  _cfi.gateWay.cmdGatewwayTxPowe = tcfg.gateWay.cmdGatewwayTxPowe or 25
+  _cfi.gateWay.enableImme = tcfg.gateWay.enableImme or false
+  _cfi.gateWay.enableIpol = tcfg.gateWay.enableIpol or false
+  _cfi.gateWay.enableNcrc = tcfg.gateWay.enableNcrc or false
+  _cfi.gateWay.enableRfch = tcfg.gateWay.enableRfch or 0
   return 0
 end
 
@@ -75,11 +87,36 @@ function _getDownlinkDataDelay()
   return _cfi.loraWan.downlinkDataDelay
 end
 
+function _getCmdGatewwayTxPowe()
+  return _cfi.gateWay.cmdGatewwayTxPowe
+end
+
+function _getEnableImme()
+  return _cfi.gateWay.enableImme
+end
+
+function _getEnableIpol()
+  return _cfi.gateWay.enableIpol
+end
+
+function _gerEnableNcrc()
+  return _cfi.gateWay.enableNcrc
+end
+
+function _gerEnableRfch()
+  return _cfi.gateWay.enableRfch
+end
+
 return {
   Init = _init,
   GetDataPath = _getDataPath,
   GetUdpPort = _getUdpPort,
   GetUdpIp = _getUdpIp,
   GetFcntCheckEnable = _getFcntCheckEnable,
-  GetDownlinkDataDelay = _getDownlinkDataDelay
+  GetDownlinkDataDelay = _getDownlinkDataDelay,
+  GetCmdGatewwayTxPowe = _getCmdGatewwayTxPowe,
+  GetEnableImme = _getEnableImme,
+  GetEnableIpol = _getEnableIpol,
+  GerEnableNcrc = _gerEnableNcrc,
+  GerEnableRfch = _gerEnableRfch
 }

@@ -15,7 +15,12 @@ debugLib="$curPath/deps/debug/lib/?.so" # emmy_core.so EmmyLua调试插件
 # cryptoLib="$curPath/deps/crypto_project/?.so"
 opensslLib="$curPath/deps/lua-openssl/?.so" # openssl.so
 
-# bitLib="$curPath/deps/aeslua/lib/bit.so"
+# osslLib="$curPath/deps/luaossl/src/5.1/?.so"
 
-CPATH="${debugLib};${opensslLib};"
-sudo LUA_CPATH="$CPATH;$LUA_CPATH" ./deps/luvit $1
+luvLib="$curPath/deps/luvi/deps/luv/?.so"
+
+CPATH="${debugLib};${opensslLib};${luvLib};"
+
+# LUA_PATH="$curPath/deps/lua-resty-openssl/lib/?.lua;;"
+
+sudo LUA_CPATH="$CPATH;$LUA_CPATH" ./deps/luvit-x86_64 $1

@@ -1,11 +1,37 @@
 {
-    "path": {
-        "data": "/home/ubuntu/lora/luvit-app-x86_64-test/lora-system_lua/data/"
-        // "config": "./config/"
-    },
-    "udp": {
-        // "ip": "192.168.11.132",
-        "ip": "192.168.1.157",
-        "port": 12234
-    }
+  "path": {
+    "data": "./data/"
+    // "config": "./config/"
+  },
+  "udp": {
+    // "ip": "127.0.0.1",
+    "ip": "192.168.1.157",
+    "port": 1700
+  },
+  "loraWan": {
+    "fcntCheckEnable": true,
+    // "deduplication_Delay": 200,
+    "downlinkDataDelay": 200
+  },
+  "gateWay": {
+    /* 
+      The output power which what the gateway is commanded to transmit the frame
+    */
+    "cmdGatewwayTxPowe": 25,
+    /* If true, the gateway is commanded to transmit the frame immediately */
+    "enableImme": false,
+    /* 
+      If true, commands gateway to invert the polarity of the transmitted bits. 
+      LoRa Server sets value to true when "modu" equals "LORA", otherwise the value is omitted. 
+    */
+    "enableIpol": true,
+    /*
+      If not false, disable physical layer CRC generation by the transmitter.
+    */
+    "enableNcrc": false,
+    /*
+      The antenna on which the gateway is commanded to transmit the frame.
+    */
+    "enableRfch": 0
+  }
 }

@@ -288,7 +288,7 @@ function DeviceInfo.Init()
   DeviceInfo.hashTable = json.parse(chunk)
   -- 定时5s写入文件一次
   timer.setInterval(
-    5000,
+    2000,
     function()
       SynchronousData()
     end

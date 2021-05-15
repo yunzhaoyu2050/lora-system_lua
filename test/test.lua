@@ -14,7 +14,7 @@ local model = require("../src/lora-lib/models/models.lua")
 local serverModule = require("../src/network-server/server.lua")
 local uv = require("luv")
 -- local thread = require('thread')
-uv.sleep(2000)
+uv.sleep(5000)
 local ret = serverCfgInfo.Init() -- 初始化 配置文件
 if ret ~= 0 then
   p("server config info init failed.")

@@ -1,116 +1,90 @@
 local consts = require("../lora-lib/constants/constants.lua")
-local config = require("../server_cfg.lua")
+local config = require("../../server_cfg.lua")
 local DeviceInfoRedis = require("../lora-lib/models/RedisModels/DeviceInfo.lua")
+local utiles = require("../../utiles/utiles.lua")
+local appServer = require("../application-server/application-server.lua")
+local buffer = require("buffer").Buffer
+local PubControllerModel = require("./pubControllerModel.lua")
 
--- 'use strict';
-
--- const BluebirdPromise = require('bluebird');
--- const _ = require('lodash');
--- const config = require('../../config');
--- const pubToASTopic = config.mqClient_ns.topics.pubToApplicationServer;
--- const pubToCSTopic = config.mqClient_ns.topics.pubToControllerServer;
-local fcntCheckEnable = config.GetFcntCheckEnable()
--- const loraLib = require('../lora-lib');
--- const { consts, ERROR } = loraLib;
--- const PubControllerModel = require('./models/pubControllerModel');
-
--- function AppDataHandler(mqClient, redisConn, mysqlConn, log) {
---   this.DeviceStatus = mysqlConn.DeviceStatus;
---   this.DeviceConfig = mysqlConn.DeviceConfig;
---   this.DeviceRouting = mysqlConn.DeviceRouting;
---   this.DeviceInfoMysql = mysqlConn.DeviceInfo;
---   this.DeviceInfoRedis = redisConn.DeviceInfo;
---   this.mqClient = mqClient;
---   this.log = log;
-
--- }
-
-local function getFreqPlan(freq, freqList)
-  if freq >= freqList[1] and freq < freqList[2] then
-    return freqList[1]
-  elseif freq >= freqList[2] and freq < freqList[3] then
-    return freqList[2]
-  elseif freq >= freqList[3] and freq < freqList[4] then
-    return freqList[3]
-  elseif freq >= freqList[4] then
-    return freqList[4]
-  else
-    p("freq is not int freqList", freq)
-    return nil
-  end
-end
-
+-- app data 上行处理流程 - 更新设备路由信息
 local function updateDeviceRouting(deviceStatus)
   local freqPlanOffset
-  local function getDatr(datr, RX1DROFFSET)
-    local dr = consts.DR_PARAM
-    local RX1DROFFSETTABLE = dr.RX1DROFFSETTABLE[freqPlanOffset]
-    local DRUP = dr.DRUP[freqPlanOffset]
-    local DRDOWN = dr.DRDOWN[freqPlanOffset]
 
-    for key, _ in pairs(DRDOWN) do
-      if RX1DROFFSETTABLE[DRUP[datr]][RX1DROFFSET] == DRDOWN[key] then
-        return key
-      end
-    end
+  local devaddr = utiles.BufferToHexString(deviceStatus.DevAddr)
 
-    return datr
-  end
-
-  -- let whereOpts = { DevAddr: deviceStatus.DevAddr };
-  -- return _this.DeviceConfig.readItem(whereOpts).then(function (res) {
-  local res = DeviceInfoRedis.Read(deviceStatus.DevAddr)
-  if (res) then
+  local res = DeviceInfoRedis.Read(devaddr)
+  if res ~= nil then
     if res.frequencyPlan == nil then
-      p("DevAddr does not exist frequencyPlan in DeviceConfig", deviceStatus.DevAddr)
+      p("DevAddr does not exist frequencyPlan in DeviceInfo", devaddr)
       return nil
     end
 
     if (res.RX1DRoffset == nil and res.RX1DRoffset ~= 0) then
-      p("DevAddr does not exist RX1DRoffset in DeviceConfig", deviceStatus.DevAddr)
+      p("DevAddr does not exist RX1DRoffset in DeviceInfo", devaddr)
       return nil
     end
 
     if (res.RX1Delay == nil and res.RX1Delay ~= 0) then
-      p("DevAddr does not exist RX1Delay in DeviceConfig", deviceStatus.DevAddr)
+      p("DevAddr does not exist RX1Delay in DeviceInfo", devaddr)
+      return nil
     end
 
-    freqPlanOffset = getFreqPlan(res.frequencyPlan, consts.FREQUENCY_PLAN_LIST)
+    freqPlanOffset = consts.GetISMFreqPLanOffset(deviceStatus.freq)
+    if freqPlanOffset == nil then
+      return nil
+    end
 
-    local tmstOffset
-    if (res.RX1Delay == 0) then
-      tmstOffset = 1 * 1000 * 1000
-    elseif (res.RX1Delay > 15) then
-      p("DevAddr RX1Delay more than 15 in DeviceConfig", deviceStatus.DevAddr)
+    local tmstOffset  -- DeviceInfoRedis 中 RX1Delay单位1s -- TODO: 测试
+    if res.RX1Delay == 0 then
+      tmstOffset = 1 * 1000 * 1000 -- 1s
+    elseif res.RX1Delay > 15 * 1000 then
+      p("DevAddr RX1Delay more than 15 in DeviceInfo", devaddr)
       return nil
     else
-      tmstOffset = res.RX1Delay * 1000 * 1000
+      tmstOffset = res.RX1Delay * 1000 -- 转换成ns RX1Delay是按照ms存储的
     end
+
+    local immeVal = false
+    local ipolVal = false
+    local NcrcVal = nil
+    local rfchVal = 0
+    if config.GetEnableImme() ~= nil then
+      immeVal = config.GetEnableImme()
+    end
+    if config.GetEnableIpol() ~= nil  then
+      ipolVal = config.GetEnableIpol()
+    end
+    if config.GerEnableNcrc() ~= nil then
+      NcrcVal = config.GerEnableNcrc()
+    end
+    if config.GerEnableRfch() ~= nil then
+      rfchVal = config.GerEnableRfch()
+    end
+
     local updateOpts = {
       gatewayId = deviceStatus.gatewayId,
       tmst = deviceStatus.tmst + tmstOffset,
       freq = consts.TXPK_CONFIG.FREQ[freqPlanOffset](
         function()
-          if freqPlanOffset == (consts.PLANOFFSET915 + 1) then
-            return deviceStatus.chan
-          else
-            return deviceStatus.freq
-          end
+          return deviceStatus.freq
         end
       ),
-      powe = consts.TXPK_CONFIG.POWE[freqPlanOffset],
-      datr = getDatr(deviceStatus.datr, res.RX1DRoffset),
+      powe = consts.TXPK_CONFIG.POWE[freqPlanOffset](),
+      datr = consts.GetDatr(deviceStatus.datr, res.RX1DRoffset, freqPlanOffset),
       modu = deviceStatus.modu,
-      codr = deviceStatus.codr
-      -- imme = false,
-      -- ipol = false
+      codr = deviceStatus.codr,
+      imme = immeVal,
+      ipol = ipolVal,
+      rfch = rfchVal
     }
+    if NcrcVal ~= nil then
+      updateOpts.NcrcVal = NcrcVal
+    end
 
     local query = {
-      DevAddr = deviceStatus.DevAddr
+      DevAddr = utiles.BufferToHexString(deviceStatus.DevAddr)
     }
 
-    -- return _this.DeviceRouting.upsertItem(updateOpts);
     return DeviceInfoRedis.UpdateItem(query, updateOpts)
   else
     p("DevAddr does not exist in DeviceConfig", deviceStatus.DevAddr)
@@ -118,56 +92,56 @@ local function updateDeviceRouting(deviceStatus)
   end
 end
 
+-- app data处理
 function handle(rxInfoArr, appObj)
-  local optimalRXInfo = rxInfoArr[0]
+  local optimalRXInfo = rxInfoArr -- 包括gatewayId、DevAddr
 
-  -- console.log('rxInfoArr',rxInfoArr);
-  -- console.log('appObj', appObj);
-
-  local uploadDataDevAddr = appObj.MACPayload.FHDR.DevAddr
+  local uploadDataDevAddr = utiles.BufferToHexString(appObj.MACPayload.FHDR.DevAddr)
   local uplinkFCnt = appObj.MACPayload.FHDR.FCnt
+
   local newFCnt
-  if fcntCheckEnable then
+
+  if config.GetFcntCheckEnable() then -- 查看服务器配置是否使能fcnt统计
     local preFCnt = appObj.FCntUp
-    local newUplinkFCntNum = uplinkFCnt:readUInt32BE()
-    local mulNum = preFCnt / 65536 -- string to number
+    local newUplinkFCntNum = uplinkFCnt:readUInt16BE(1)
+    local mulNum = preFCnt / 65536
     local remainderNum = preFCnt % 65536
 
-    if (newUplinkFCntNum > remainderNum and newUplinkFCntNum - remainderNum < consts.MAX_FCNT_DIFF) then
+    if newUplinkFCntNum > remainderNum and newUplinkFCntNum - remainderNum < consts.MAX_FCNT_DIFF then
       newFCnt = mulNum * 65536 + newUplinkFCntNum
-    elseif (remainderNum > newUplinkFCntNum and newUplinkFCntNum + 65536 - remainderNum < consts.MAX_FCNT_DIFF) then
+    elseif remainderNum > newUplinkFCntNum and newUplinkFCntNum + 65536 - remainderNum < consts.MAX_FCNT_DIFF then
       newFCnt = (mulNum + 1) * 65536 + newUplinkFCntNum
-    elseif (remainderNum == newUplinkFCntNum) then
+    elseif remainderNum == newUplinkFCntNum then
       newFCnt = preFCnt
     else
       p("Invalid FCnt", uploadDataDevAddr, preFCnt, newUplinkFCntNum)
       return nil
     end
   else
-    newFCnt = uplinkFCnt:readUInt32BE()
+    newFCnt = uplinkFCnt:readUInt16BE(1)
   end
 
-  function uploadToAS(appObj)
-    local topic = pubToASTopic
+  local function uploadToAS(appObj) -- 推送至app模块处理
     local message = {
       DevAddr = appObj.MACPayload.FHDR.DevAddr,
       FRMPayload = appObj.MACPayload.FRMPayload
     }
-
-    return _this.mqClient.publish(topic, message) -- 推送至app服务器上
+    p("server module _> app module, send app message")
+    return appServer.Process("ServerPubToApp", message)
   end
 
-  function storeRXInfoToMysql(rxInfoArr)
-    -- 存储rxinfo信息
-    -- return BluebirdPromise.map(rxInfoArr, function (item) {
-    --   return _this.DeviceStatus.createItem(item);
-    -- });
-    return DeviceStatus.createItem(item) -- 设备状态存储
-  end
+  -- local function storeRXInfoToMysql(rxInfoArr)
+  --   -- 存储rxinfo信息
+  --   -- return BluebirdPromise.map(rxInfoArr, function (item) {
+  --   --   return _this.DeviceStatus.createItem(item);
+  --   -- });
+  --   return DeviceStatus.createItem(item) -- 设备状态存储
+  -- end
 
-  function uploadToCS(rxInfoArr, appObj)
-    local macCmdArr = {}
-    local fport = appObj.MACPayload.FPort:readInt8()
+  local function uploadToCS(rxInfoArr, appObj) -- 推送至control模块处理
+    local macCmdArr = buffer:new(0)
+
+    local fport = appObj.MACPayload.FPort:readUInt8(1)
     local fOptsLen = appObj.MACPayload.FHDR.FCtrl.FOptsLen
     if fport == 0 and appObj.MACPayload.FRMPayload then
       macCmdArr = appObj.MACPayload.FRMPayload
@@ -178,40 +152,46 @@ function handle(rxInfoArr, appObj)
     local adr = appObj.MACPayload.FHDR.FCtrl.ADR
     local pubControllerModel
     if macCmdArr.length > 0 then
-      pubControllerModel = new
-      PubControllerModel(rxInfoArr, adr, macCmdArr)
+      pubControllerModel = PubControllerModel:new(rxInfoArr, adr, macCmdArr)
+    elseif adr == 1 then
+      pubControllerModel = PubControllerModel:new(rxInfoArr, adr)
     else
-      if (adr == 1) then
-        pubControllerModel = new
-        PubControllerModel(rxInfoArr, adr)
-      else
-        return BluebirdPromise.resolve()
-      end
-
-      local topic = pubToCSTopic
-      local message = {
-        DevAddr = pubControllerModel.getDevAddr(),
-        data = pubControllerModel.getCMDdata(),
-        adr = pubControllerModel.getadr(),
-        devtx = pubControllerModel.getdevtx(),
-        gwrx = pubControllerModel.getgwrx()
-      }
-
-      -- _this.log.info({
-      --   label: `Pub to ${topic}`,
-      --   message: message,
-      -- });
-
-      return _this.mqClient.publish(topic, message) -- 推送至控制服务器上
+      p("   Business data does not require mac command processing")
+      return nil
     end
 
-    local res = updateDeviceRouting(optimalRXInfo)
-    res = DeviceInfoRedis.update(uploadDataDevAddr, {FCntUp = newFCnt})
-    -- DeviceInfoMysql.increaseFcntup(uploadDataDevAddr, newFCnt)
-    res = uploadToAS(appObj)
-    res = uploadToCS(rxInfoArr, appObj)
-    return {rxInfoArr, appObj}
+    -- 推送至control模块处理
+    local topic = pubToCSTopic
+    local message = {
+      DevAddr = pubControllerModel.getDevAddr(),
+      data = pubControllerModel.getCMDdata(),
+      adr = pubControllerModel.getadr(),
+      devtx = pubControllerModel.getdevtx(),
+      gwrx = pubControllerModel.getgwrx()
+    }
+
+    p("error： Currently does not support control module processing!!")
+    return 0 -- _this.mqClient.publish(topic, message);
   end
+  -- end
+
+  -- main
+  local res = updateDeviceRouting(optimalRXInfo)
+  if res == nil then
+    return nil
+  end
+  res = DeviceInfoRedis.UpdateItem({DevAddr = uploadDataDevAddr}, {FCntUp = newFCnt})
+  if res == nil then
+    return nil
+  end
+  -- DeviceInfoMysql.increaseFcntup(uploadDataDevAddr, newFCnt)
+  -- TODO:需要对业务数据及mac数据进行分类处理
+
+  res = uploadToAS(appObj) -- 应用数据上传
+
+  res = uploadToCS(rxInfoArr, appObj) -- mac命令传至control模块
+  
+  return {rxInfoArr = rxInfoArr, appObj = appObj}
 end
 
 return {

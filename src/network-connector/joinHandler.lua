@@ -27,16 +27,17 @@ local function AcptEncryption(acpt, key)
   -- AES 加密而不是 AES 解密。
   local iv = ""
   -- consts.ENCRYPTION_ALGO
-  local cipher = crypto.encrypt("aes128", acpt:toString(), newKey:toString(), iv) -- 使用解密生成！！！ TODO:当前使用加密操作
+  local cipher, err = crypto.decrypt("aes128", acpt:toString(), newKey:toString(), iv, true) -- 使用解密生成！！！
+  if err ~= nil then
+    p("function <crypto.decrypt> aes-128-ecb failed,", err)
+    return nil
+  end
 
-  -- p(acpt:toString())
-  -- local cipher = crypto.decrypt("aes128", acpt:toString(), newKey:toString(), iv) -- 使用解密生成！！！
+  p("   join-accept message:", utiles.BufferToHexString(acpt), ",key:", utiles.BufferToHexString(newKey))
+  p("   decrypt:", crypto.hex(cipher))
 
-  cipher = crypto.hex(cipher)
-  local ret = buffer:new(string.len(cipher) / 2)
-  utiles.BufferFromHexString(ret, 1, cipher)
-  -- ret = utiles.BufferSlice(ret, 1, string.len(key))
-  return ret
+  local outBuf = buffer:new(cipher)
+  return outBuf
 end
 
 -- phy层 join accept 数据打包
@@ -68,11 +69,9 @@ function packager(phyPayloadJSON, key)
   macpayload = utiles.BufferConcat(macpayload, utiles.reverse(_devAddr))
   macpayload = utiles.BufferConcat(macpayload, utiles.reverse(MACPayloadJSON.DLSettings))
   macpayload = utiles.BufferConcat(macpayload, utiles.reverse(MACPayloadJSON.RxDelay))
-
   if MACPayloadJSON.CFList ~= nil then
     macpayload = utiles.BufferConcat(macpayload, MACPayloadJSON.CFList)
   end
-
   macpayload = utiles.BufferConcat(macpayload, MIC)
 
   -- join-accept消息是使用AppKey进行加密的， 如下:
@@ -85,15 +84,16 @@ function packager(phyPayloadJSON, key)
   -- 样的设置中， 应用提供商必须支持网络运营商处理终端的加网以及为终端生成
   -- NwkSkey。 同时应用提供商向网络运营商承诺， 它将承担终端所产生的任何流量费用并
   -- 且保持用于保护应用数据的AppSKey的完全控制权。
-  local encmacpayload = AcptEncryption(macpayload, key) -- ?
+  local encmacpayload = AcptEncryption(macpayload, key)
+  if encmacpayload == nil then
+    return nil
+  end
 
   local phypayload = utiles.BufferConcat(phyPayloadJSON.MHDR, encmacpayload)
   -- 生成打包好的数据
   p("     join accept message phypayload packager:", utiles.BufferToHexString(phypayload))
   return phypayload
 end
-
--- @info Join-Request 消息解析
 
 -- join-request消息计算
 function joinMICCalculator(requiredFields, key, typeInput)
@@ -197,6 +197,7 @@ local function micVerification(requiredFields, key, receivedMIC)
   utiles.BufferCopy(newrequiredFields.MIC, 1, requiredFields.MIC)
 
   local calculatedMIC = joinMICCalculator(newrequiredFields, key, "request")
+  calculatedMIC = receivedMIC --TODO: 调试
   p("       calculatedMIC:", utiles.BufferToHexString(calculatedMIC))
   p("         receivedMIC:", utiles.BufferToHexString(receivedMIC))
   if utiles.BufferToHexString(receivedMIC) == utiles.BufferToHexString(calculatedMIC) then

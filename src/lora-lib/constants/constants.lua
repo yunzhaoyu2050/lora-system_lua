@@ -1,8 +1,9 @@
 -- @info 静态值
 
 local buffer = require("buffer").Buffer
-local basexx = require("../../../deps/basexx/lib/basexx.lua")
-
+-- local basexx = require("../../../deps/basexx/lib/basexx.lua")
+local utiles = require("../../../utiles/utiles.lua")
+local config = require("../../../server_cfg.lua")
 local consts = {}
 
 function consts.Init()
@@ -49,17 +50,100 @@ function consts.Init()
     "identifier"
   }
 
-  consts.FREQUENCY_PLAN_LIST = {433, 915, 868, 787}
-  consts.PLANOFFSET915 = 1
-  consts.CFLISTJSON = {
-    [433] = "330A6833029832FAC832F2F832EB2832E35832DB8832D3B8",
-    [915] = "7CC5687CBD987CB5C87CADF87CA6287C9E587C96887C8EB8",
-    [868] = "756A987562C8755AF8755328754B58754388753BB87533E8",
-    [787] = "67E5A867DDD867D60867CE3867C66867BE9867B6C867AEF8"
+  -----------------------------------------------------------------------------------------------------ism freq------------------------------------------------------------------------------------
+  -- EU 433MHz ISM Band
+  -- CN 470-510MHz Band
+  -- China 779-787MHz ISM Band
+  -- EU 863-870MHz ISM Band
+  -- India 865-867 MHz ISM Band
+  -- US 902-928MHz ISM Band
+  -- Australia 915-928MHz ISM Band
+  -- AS923MHz ISM Band
+  -- South Korea 920-923MHz ISM Band
+
+  -- consts.FREQUENCY_PLAN_LIST = {
+  --   433, -- EU 433MHz ISM Band
+  --   470, -- CN 470-510MHz Band
+  --   779,
+  --   863,
+  --   865,
+  --   902,
+  --   915,
+  --   920,
+  --   923
+  -- }
+  consts.ISMFREQTABLE = {
+    ["EU433"] = "EU433",
+    ["CN470-510"] = "CN470-510",
+    ["CN779-787"] = "CN779-787",
+    ["US902-928"] = "US902-928",
+    ["AS923AU915-928"] = "AS923AU915-928"
   }
+
+  consts.PLANOFFSET915 = 1
+
+  consts.GetISMFreqPLanOffset = function(rxFreq) -- 根据输入的频率获得ism频段
+    if type(rxFreq) == "string" then
+      if rxFreq == "EU433" then
+        return "EU433"
+      elseif rxFreq == "CN470-510" then
+        return "CN470-510"
+      elseif rxFreq == "CN779-787" then
+        return "CN779-787"
+      elseif rxFreq == "US902-928" then
+        return "US902-928"
+      elseif rxFreq == "AS923AU915-928" then
+        return "AS923AU915-928"
+      else
+        return ""
+      end
+    elseif type(rxFreq) == "number" then
+      if rxFreq == 433 then
+        return "EU433"
+      elseif rxFreq >= 470 and rxFreq <= 510 then
+        return "CN470-510"
+      elseif rxFreq >= 779 and rxFreq <= 787 then
+        return "CN779-787"
+      elseif rxFreq >= 902 and rxFreq <= 928 then
+        return "US902-928"
+      elseif rxFreq >= 915 and rxFreq <= 928 then
+        return "AS923AU915-928"
+      else
+        return ""
+      end
+    else
+      return ""
+    end
+  end
+
+  consts.GetDatr = function(datr, RX1DROFFSET, freqIsmPlanOffset) -- 获得datr
+    local dr = consts.DR_PARAM
+    local RX1DROFFSETTABLE = dr.RX1DROFFSETTABLE[freqIsmPlanOffset]
+    local DRUP = dr.DRUP[freqIsmPlanOffset]
+    local DRDOWN = dr.DRDOWN[freqIsmPlanOffset]
+    for key, _ in pairs(DRDOWN) do
+      if RX1DROFFSETTABLE[DRUP[datr]][RX1DROFFSET] == DRDOWN[key] then
+        return key
+      end
+    end
+    return datr
+  end
+
+  consts.CFLISTJSON = {
+    ["EU433"] = "330A6833029832FAC832F2F832EB2832E35832DB8832D3B8",
+    ["CN470-510"] = "",
+    ["CN779-787"] = "67E5A867DDD867D60867CE3867C66867BE9867B6C867AEF8",
+    ["US902-928"] = "",
+    ["AS923AU915-928"] = "7CC5687CBD987CB5C87CADF87CA6287C9E587C96887C8EB8"
+    -- ["EU863-870"] = "756A987562C8755AF8755328754B58754388753BB87533E8",
+  }
+
+  -- 这张表中的最大EIRP的值的变化范围由各个地区来进行自行规定。
+  -- Coded Value   0  1  2  3  4  5  6  7  8  9 10 11
+  -- Max EIRP(dBm) 8 10 12 13 14 16 18 20 21 24 26 27
   consts.DEFAULTCHDRRANGE = "5050505050505050"
   consts.DEFAULTCONF = {
-    [433] = {
+    ["EU433"] = {
       frequencyPlan = 433,
       ChMask = "00FF",
       CFList = consts.CFLISTJSON[433],
@@ -69,27 +153,18 @@ function consts.Init()
       RX2DataRate = 0,
       MaxEIRP = 12.15
     },
-    [915] = {
-      frequencyPlan = 915,
-      ChMask = "FF00000000000000FF",
-      CFList = consts.CFLISTJSON[915],
-      ChDrRange = consts.DEFAULTCHDRRANGE,
-      RX1CFList = "7E44387E2CC87E15587DFDE87DE6787DCF087DB7987DA028",
-      RX2Freq = 923.300,
-      RX2DataRate = 8,
-      MaxEIRP = 30
-    },
-    [868] = {
-      frequencyPlan = 868,
+    ["CN470-510"] = {
+      -- TODO: 核定
+      frequencyPlan = 470,
       ChMask = "00FF",
-      CFList = consts.CFLISTJSON[868],
+      CFList = "",
       ChDrRange = consts.DEFAULTCHDRRANGE,
-      RX1CFList = consts.CFLISTJSON[868],
-      RX2Freq = 869.525,
+      RX1CFList = "",
+      RX2Freq = 474.665,
       RX2DataRate = 0,
-      MaxEIRP = 16
+      MaxEIRP = 27
     },
-    [787] = {
+    ["CN779-787"] = {
       frequencyPlan = 787,
       ChMask = "00FF",
       CFList = consts.CFLISTJSON[787],
@@ -98,7 +173,27 @@ function consts.Init()
       RX2Freq = 786.000,
       RX2DataRate = 0,
       MaxEIRP = 12.15
+    },
+    ["AS923AU915-928"] = {
+      frequencyPlan = 915,
+      ChMask = "FF00000000000000FF",
+      CFList = consts.CFLISTJSON[915],
+      ChDrRange = consts.DEFAULTCHDRRANGE,
+      RX1CFList = "7E44387E2CC87E15587DFDE87DE6787DCF087DB7987DA028",
+      RX2Freq = 923.300,
+      RX2DataRate = 8,
+      MaxEIRP = 30
     }
+    -- ["EU863-870"] = {
+    --   frequencyPlan = 868,
+    --   ChMask = "00FF",
+    --   CFList = consts.CFLISTJSON[868],
+    --   ChDrRange = consts.DEFAULTCHDRRANGE,
+    --   RX1CFList = consts.CFLISTJSON[868],
+    --   RX2Freq = 869.525,
+    --   RX2DataRate = 0,
+    --   MaxEIRP = 16
+    -- },
   }
 
   -- Default frequency of received window (2)
@@ -113,17 +208,37 @@ function consts.Init()
   -- Default RxDelay for RX1 is 1000 ms
   consts.DEFAULT_RX1DELAY = 1000
 
-  consts.DOWNLINK_MQ_PREFIX = "lora:as:appdata:"
+  -- consts.DOWNLINK_MQ_PREFIX = "lora:as:appdata:"
   consts.DOWNLINK_DELAY = 300
   consts.DEDUPLICATION_DURATION = 200
-  consts.COLLECTKEYTEMP_PREFIX = "lora:ns:rx:collect:"
-  consts.COLLECTLOCKKEYTEMP_PREFIX = "lora:ns:rx:collect:lock:"
+  -- consts.COLLECTKEYTEMP_PREFIX = "lora:ns:rx:collect:"
+  -- consts.COLLECTLOCKKEYTEMP_PREFIX = "lora:ns:rx:collect:lock:"
 
-  local data = basexx.to_hex("00") -- 转换成hex格式
-  consts.MACCOMMANDPORT = buffer:new(tostring(data))
+  consts.MACCOMMANDPORT = buffer:new(1) -- 填充0
+  utiles.BufferFill(consts.MACCOMMANDPORT, 0)
 
   consts.MAX_FCNT_DIFF = 50
+
+  consts.CMDGATEWAYTXPOWE_DEFAULT = 25 -- 默认网关发射功率
+
+  -- 获取频率表的偏移值
+  consts.GetIndexFreqOffset = function(tbl, val)
+    for i, v in pairs(tbl) do
+      if v == val then
+        return i - 1
+      end
+    end
+    p(
+      "CN 470-510MHz Band, Only supports:",
+      consts.DR470510FREQTABLE,
+      ", The current frequency is not in this range:",
+      val
+    )
+    return -1
+  end
+
   -- data rate parameters
+  -- ***************************************EU 433MHz ISM Band******************************************* --
   consts.DR433 = {
     SF12BW125 = "DR0",
     SF11BW125 = "DR1",
@@ -146,7 +261,57 @@ function consts.Init()
   }
 
   consts.RX1DROFFSET433 = 4
+  -- *************************************************************************************************************** --
+  -- ***********************************************CN 470-510MHz Band********************************************** --
+  consts.DR470510 = {
+    SF12BW125 = "DR0", -- 250 bit/sec
+    SF11BW125 = "DR1", -- 440
+    SF10BW125 = "DR2", -- 980
+    SF9BW125 = "DR3", -- 1760
+    SF8BW125 = "DR4", -- 3125
+    SF7BW125 = "DR5" -- 5470
+  }
 
+  consts.RX1DROFFSET470510TABLE = {
+    DR0 = {"DR0", "DR0", "DR0", "DR0", "DR0", "DR0"},
+    DR1 = {"DR1", "DR0", "DR0", "DR0", "DR0", "DR0"},
+    DR2 = {"DR2", "DR1", "DR0", "DR0", "DR0", "DR0"},
+    DR3 = {"DR3", "DR2", "DR1", "DR0", "DR0", "DR0"},
+    DR4 = {"DR4", "DR3", "DR2", "DR1", "DR0", "DR0"},
+    DR5 = {"DR5", "DR4", "DR3", "DR2", "DR1", "DR0"}
+  }
+
+  --  2.6.9 CN470-510 Default Settings
+  --  The following parameters are recommended values for the CN470-510 band.
+  --  RECEIVE_DELAY1 1 s
+  --  RECEIVE_DELAY2 2 s (must be RECEIVE_DELAY1 + 1s)
+  --  JOIN_ACCEPT_DELAY1 5 s
+  --  JOIN_ACCEPT_DELAY2 6 s
+  --  MAX_FCNT_GAP 16384
+  --  ADR_ACK_LIMIT 64
+  --  ADR_ACK_DELAY 32
+  --  ACK_TIMEOUT 2 +/- 1 s (random delay between 1 and 3 seconds)
+
+  consts.RX1DROFFSET470510 = 4
+
+  -- 支持的频率表
+  consts.DR470510FREQTABLE = {
+    470.300000,
+    470.500000,
+    470.700000,
+    470.900000,
+    471.100000,
+    471.300000,
+    471.500000,
+    471.700000
+  }
+
+  consts.CN470510_STEPWIDTH_RX1_CHANNEL = 0.200000
+  consts.CN470510_FIRST_RX1_CHANNEL = 500.300000
+
+  -- consts.CN470510_CMDGATEWAYTXPOWE_DEFAULT = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25}
+  -- *************************************************************************************************************** --
+  -- ***************************************Australia 915-928MHz ISM Band******************************************* --
   consts.DR915UP = {
     SF10BW125 = "DR0",
     SF9BW125 = "DR1",
@@ -179,34 +344,73 @@ function consts.Init()
   }
 
   consts.RX1DROFFSET915 = 1
+  -- *************************************************************************************************************** --
 
   consts.DR_PARAM = {
-    RX1DROFFSETTABLE = {consts.RX1DROFFSET433TABLE, consts.RX1DROFFSET915TABLE},
-    DRUP = {consts.DR433, consts.DR915UP},
-    DRDOWN = {consts.DR433, consts.DR915DOWN},
-    RX1DROFFSET = {consts.RX1DROFFSET433, consts.RX1DROFFSET915} -- FIXME delete me, DeviceConfig
+    RX1DROFFSETTABLE = {
+      ["EU433"] = consts.RX1DROFFSET433TABLE,
+      ["CN470-510"] = consts.RX1DROFFSET470510TABLE,
+      ["AS923AU915-928"] = consts.RX1DROFFSET915TABLE
+    },
+    DRUP = {
+      ["EU433"] = consts.DR433,
+      ["CN470-510"] = consts.DR470510,
+      ["AS923AU915-928"] = consts.DR915UP
+    },
+    DRDOWN = {
+      ["EU433"] = consts.DR433,
+      ["CN470-510"] = consts.DR470510,
+      ["AS923AU915-928"] = consts.DR915DOWN
+    },
+    RX1DROFFSET = {
+      ["EU433"] = consts.RX1DROFFSET433,
+      ["CN470-510"] = consts.RX1DROFFSET470510,
+      ["AS923AU915-928"] = consts.RX1DROFFSET915
+    } -- FIXME delete me, DeviceConfig
   }
 
   -- Default configuration of txpk
   consts.TXPK_CONFIG = {
-    TMST_OFFSET = 1000000,
-    TMST_OFFSET_JOIN = 1000000, -- 5000000
+    TMST_OFFSET = 1000000, -- 1s
+    TMST_OFFSET_JOIN = 5000000, -- 5s
     FREQ = {
-      [1] = function(callBack)
-        return callBack()
-      end, -- FREQ = FREQ,
-      [2] = function(callBack)
-        return 923.3 + (callBack() % 8) * 0.6
-      end, -- CHAN = 923.3 + (CHAN % 8) * 0.6
-      [3] = function(callBack)
+      ["EU433"] = function(callBack)
         return callBack()
       end,
-      [4] = function(callBack)
+      ["CN470-510"] = function(callBack)
+        local indexOffset = consts.GetIndexFreqOffset(consts.DR470510FREQTABLE, callBack())
+        if indexOffset < 0 then
+          return 0
+        end
+        return consts.CN470510_FIRST_RX1_CHANNEL + (indexOffset % 48) * consts.CN470510_STEPWIDTH_RX1_CHANNEL
+      end,
+      ["AS923AU915-928"] = function(callBack)
+        return 923.3 + (callBack() % 8) * 0.6
+      end,
+      ["CN779-787"] = function(callBack)
         return callBack()
       end
     },
-    POWE = {25, 20, 20, 20}
+    POWE = {
+      ["EU433"] = function()
+        return 25
+      end,
+      ["CN470-510"] = function()
+        local cfgPowe = config.GetCmdGatewwayTxPowe()
+        if cfgPowe ~= nil then
+          return cfgPowe
+        end
+        return consts.CMDGATEWAYTXPOWE_DEFAULT
+      end,
+      ["AS923AU915-928"] = function()
+        return 20
+      end,
+      ["CN779-787"] = function()
+        return 20
+      end
+    }
   }
+  -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
   consts.RXDELAY_LEN = 1
   consts.DEFAULT_RXDELAY = buffer:new(consts.RXDELAY_LEN)
@@ -642,10 +846,10 @@ function consts.Init()
     TXPOWER_STEP = 1,
     CHMASK_DEFAULT = "00FF",
     CHMASKCNTL_DEFAULT = {
-      [consts.FREQUENCY_PLAN_LIST[1]] = 6,
-      [consts.FREQUENCY_PLAN_LIST[2]] = 5,
-      [consts.FREQUENCY_PLAN_LIST[3]] = 6,
-      [consts.FREQUENCY_PLAN_LIST[4]] = 6
+      [consts.ISMFREQTABLE["EU433"]] = 6,
+      [consts.ISMFREQTABLE["CN470-510"]] = 5,
+      [consts.ISMFREQTABLE["CN779-787"]] = 6,
+      [consts.ISMFREQTABLE["AS923AU915-928"]] = 6
     },
     NBTRANS_DEFAULT = consts.LINKADRREQ.NBTRANS_DEFAULT
   }
@@ -703,10 +907,10 @@ function consts.Init()
     }
   }
   consts.TXPOWER_MAX_LIST = {
-    [consts.FREQUENCY_PLAN_LIST[1]] = 5,
-    [consts.FREQUENCY_PLAN_LIST[2]] = 10,
-    [consts.FREQUENCY_PLAN_LIST[3]] = 7,
-    [consts.FREQUENCY_PLAN_LIST[4]] = 5
+    [consts.ISMFREQTABLE["EU433"]] = 5,
+    [consts.ISMFREQTABLE["CN470-510"]] = 10,
+    [consts.ISMFREQTABLE["CN779-787"]] = 7,
+    [consts.ISMFREQTABLE["AS923AU915-928"]] = 5
   }
 
   consts.TXPOWER_MIN = 0
