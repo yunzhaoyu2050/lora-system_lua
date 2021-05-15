@@ -48,9 +48,11 @@ design by https://github.com/xisiot/lora-system
 11、[Implementations Server.md](/docs/Implementations/Server.md)
 
 ### usage：
+    构建所需要的依赖文件
+    make
 
-    启动模拟设备节点测试程序, join: 入网请求消息， app: 应用消息
-    ./emulator.sh join
+    启动模拟设备节点测试程序, join: 入网请求消息， app: 应用消息 !!舍弃
+    ./emulator.sh join !!舍弃
 
     启动lorawan server测试程序， test：指代测试模式，会重新覆盖原始数据库数据
     ./run test/test.lua test 
