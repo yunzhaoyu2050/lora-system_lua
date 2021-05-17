@@ -183,7 +183,10 @@ function handler(rxpk)
 
   local frequencyPlan = consts.GetISMFreqPLanOffset(freq)
   _defaultConf = consts.DEFAULTCONF[frequencyPlan]
-
+  if _defaultConf == nil then
+    p("_defaultConf is nil")
+    return nil
+  end
   -- Query the existance of DevEUI
   -- If so, process the rejoin procedure
 

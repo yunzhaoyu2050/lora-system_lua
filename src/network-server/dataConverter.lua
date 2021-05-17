@@ -106,6 +106,7 @@ function uplinkDataHandler(jsonData)
         local rxInfoArr = rxInfoConverter(uplinkDataJson)
         local appObj = appDataConverter(uplinkDataJson)
         if appObj ~= nil then
+          -- p("uplinkDataJson",uplinkDataJson)
           local uplinkInfo = appDataHandler.handle(rxInfoArr, appObj) -- 将Application message推送至app模块处理
           if uplinkInfo == nil then
             return "other", nil

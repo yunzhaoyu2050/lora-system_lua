@@ -5,6 +5,7 @@ local utiles = require("../../utiles/utiles.lua")
 local appServer = require("../application-server/application-server.lua")
 local buffer = require("buffer").Buffer
 local PubControllerModel = require("./pubControllerModel.lua")
+local controllerHandle = require("../network-controller/controller.lua")
 
 -- app data 上行处理流程 - 更新设备路由信息
 local function updateDeviceRouting(deviceStatus)
@@ -34,7 +35,7 @@ local function updateDeviceRouting(deviceStatus)
       return nil
     end
 
-    local tmstOffset  -- DeviceInfoRedis 中 RX1Delay单位1s -- TODO: 测试
+    local tmstOffset  -- DeviceInfoRedis 中 RX1Delay单位1s
     if res.RX1Delay == 0 then
       tmstOffset = 1 * 1000 * 1000 -- 1s
     elseif res.RX1Delay > 15 * 1000 then
@@ -51,7 +52,7 @@ local function updateDeviceRouting(deviceStatus)
     if config.GetEnableImme() ~= nil then
       immeVal = config.GetEnableImme()
     end
-    if config.GetEnableIpol() ~= nil  then
+    if config.GetEnableIpol() ~= nil then
       ipolVal = config.GetEnableIpol()
     end
     if config.GerEnableNcrc() ~= nil then
@@ -101,7 +102,8 @@ function handle(rxInfoArr, appObj)
 
   local newFCnt
 
-  if config.GetFcntCheckEnable() then -- 查看服务器配置是否使能fcnt统计
+  local isEnable = config.GetFcntCheckEnable()
+  if isEnable == true then -- 查看服务器配置是否使能fcnt统计
     local preFCnt = appObj.FCntUp
     local newUplinkFCntNum = uplinkFCnt:readUInt16BE(1)
     local mulNum = preFCnt / 65536
@@ -126,6 +128,7 @@ function handle(rxInfoArr, appObj)
       DevAddr = appObj.MACPayload.FHDR.DevAddr,
       FRMPayload = appObj.MACPayload.FRMPayload
     }
+    -- p(appObj)
     p("server module _> app module, send app message")
     return appServer.Process("ServerPubToApp", message)
   end
@@ -151,7 +154,7 @@ function handle(rxInfoArr, appObj)
 
     local adr = appObj.MACPayload.FHDR.FCtrl.ADR
     local pubControllerModel
-    if macCmdArr.length > 0 then
+    if #macCmdArr > 0 then
       pubControllerModel = PubControllerModel:new(rxInfoArr, adr, macCmdArr)
     elseif adr == 1 then
       pubControllerModel = PubControllerModel:new(rxInfoArr, adr)
@@ -161,17 +164,17 @@ function handle(rxInfoArr, appObj)
     end
 
     -- 推送至control模块处理
-    local topic = pubToCSTopic
+    -- local topic = pubToCSTopic
     local message = {
-      DevAddr = pubControllerModel.getDevAddr(),
-      data = pubControllerModel.getCMDdata(),
-      adr = pubControllerModel.getadr(),
-      devtx = pubControllerModel.getdevtx(),
-      gwrx = pubControllerModel.getgwrx()
+      DevAddr = pubControllerModel:getDevAddr(),
+      data = pubControllerModel:getCMDdata(),
+      adr = pubControllerModel:getadr(),
+      devtx = pubControllerModel:getdevtx(),
+      gwrx = pubControllerModel:getgwrx()
     }
 
-    p("error： Currently does not support control module processing!!")
-    return 0 -- _this.mqClient.publish(topic, message);
+    p("server module _> controller module, send mac cmd message")
+    return controllerHandle.Process(message) -- _this.mqClient.publish(topic, message);
   end
   -- end
 
@@ -187,10 +190,11 @@ function handle(rxInfoArr, appObj)
   -- DeviceInfoMysql.increaseFcntup(uploadDataDevAddr, newFCnt)
   -- TODO:需要对业务数据及mac数据进行分类处理
 
-  res = uploadToAS(appObj) -- 应用数据上传
-
+  if appObj.MACPayload.FPort:readUInt8(1) ~= 0 and appObj.MACPayload.FRMPayload ~= nil then
+    res = uploadToAS(appObj) -- 应用数据上传
+  end
   res = uploadToCS(rxInfoArr, appObj) -- mac命令传至control模块
-  
+
   return {rxInfoArr = rxInfoArr, appObj = appObj}
 end
 

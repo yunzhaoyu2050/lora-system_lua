@@ -119,6 +119,7 @@ function macPayloadParser(macPayload)
   if fhdrEnd == macPayloadLen then -- 不是macplay的消息
     -- 此处有可能是其他的消息
     -- No FPort and FRMPayload
+    p(" No FPort and FRMPayload")
     return macPayloadJSON
   else
     if fhdrEnd > macPayloadLen then -- 出错
@@ -134,7 +135,7 @@ function macPayloadParser(macPayload)
       else
         FRMPayload = utiles.BufferSlice(macPayload, FRMPayloadOffset, macPayload.length)
       end
-      local FRMPayload = utiles.BufferSlice(macPayload, FRMPayloadOffset + 1, macPayload.length)
+      FRMPayload = utiles.BufferSlice(macPayload, FRMPayloadOffset + 1, macPayload.length)
       p("   FRMPayload:", utiles.BufferToHexString(FRMPayload))
       if FRMPayload.length <= 0 then -- 出错
         p("FRMPayload must not be empty if FPort is given")
@@ -291,6 +292,7 @@ function decryptFRMPayload(values, phyPayloadJSON, macPayloadJSON, requiredField
     if (macPayloadJSON.FPort:readUInt8(1) == consts.MACCOMMANDPORT:readUInt8(1)) then
       -- FPort值为0表示FRMPayload为MAC指令，非0则标志FRMPayload为业务数据。
       -- 当FOptsLen为非0值时，FPort也只能为非0值，不允许同时在FOpts和FRMPayload都有MAC指令
+      p("   is mac data.")
       if macPayloadJSON.fhdrJSON.FCtrl.FOptsLen > 0 then
         p("MAC Commands are present in the FOpts field, the FPort 0 cannot be used")
         return -2
@@ -298,6 +300,8 @@ function decryptFRMPayload(values, phyPayloadJSON, macPayloadJSON, requiredField
         -- MAC指令
         result.MACPayload.FRMPayload = macCmdParser.parser(framePayload).cmdArr
       end
+    else
+      p("   is app data.")
     end
     -- 业务数据
     return result
@@ -343,6 +347,8 @@ function parser(phyPayloadRaw)
     if macPayloadJSON == nil then
       return nil
     end
+    -- macPayloadJSON.fhdrJSON.DevAddr[1] = 0
+    utiles.printBuf(macPayloadJSON.fhdrJSON.DevAddr)
     -- MIC verification mic计算需要使用的参数
     local requiredFields = {
       MHDR = phyPayloadJSON.mhdr,

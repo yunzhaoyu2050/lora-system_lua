@@ -18,6 +18,7 @@ local function basicVerifyBlock(requiredFields, classification, direction)
   block[1] = consts.BLOCK_CLASS[classification]
   -- direction.copy(block, consts.BLOCK_DIR_OFFSET);
   utiles.BufferCopy(block, consts.BLOCK_DIR_OFFSET + 1, direction, 1, direction.length)
+  -- requiredFields.DevAddr[1] = 19
   local DevAddr = utiles.reverse(requiredFields.DevAddr) -- reverse(requiredFields.DevAddr);
   -- p("   DevAddr:", utiles.BufferToHexString(DevAddr))
   -- DevAddr.copy(block, consts.BLOCK_DEVADDR_OFFSET);

@@ -1,9 +1,9 @@
 local utiles = require("../../utiles/utiles.lua")
 -- const BluebirdPromise = require('bluebird');
--- const MacCommandHandler = require('./macCmdHandlers');
+local MacCommandHandler = require("./macCmdHandlers/macCmdHandlers.lua")
 -- const AdrControlScheme = require('./controlSchemes/adrControlScheme');
--- const constants = require('./lora-lib/constants');
-
+local constants = require("../lora-lib/constants/constants.lua")
+local DownlinkCmdQueue = require("../lora-lib/models/RedisModels/DownlinkCmdQueue.lua")
 -- // const DeviceRXInfo = require('../lib/converter/deviceRXInfo');
 -- // const MacCommand = require('../lib/converter/macCommand');
 
@@ -18,166 +18,218 @@ local utiles = require("../../utiles/utiles.lua")
 --     this.adrControlScheme = new AdrControlScheme(mysqlConn, redisConn, log);
 --   }
 
-  --
-  -- process mac command and uplink status report of adr device sequentially
-  --
-function  process(messageObj) 
-
-    if messageObj.DevAddr == nil or messageObj.adr or
-      messageObj.data == nil or messageObj.devtx == nil or
-      messageObj.gwrx == nil then
-      p("Invalid message from kafka, Message ${JSON.stringify(messageObj)}")
-      return nil
-    end
-
-    local devAddr = utiles.BufferToHexString(messageObj.DevAddr);
-    local isAdr = messageObj.adr;
-    local cmds = messageObj.data;
-    local remains = {
-      devtx= messageObj.devtx,
-      gwrx= messageObj.gwrx,
-    };
-
-    -- let _this = this;
-    local dlkCmdQue = redisConn.DownlinkCmdQueue;
-    -- let log = this.log;
-    local processFlow = {};
-
-    -- process mac commands (req and ans)
-
-    if (devAddr == nil or cmds == nil) then
-      p("Lack of devAddr or data from kafka message", devAddr, cmds)
-    end
-
-    // get all commands in downlink queue
-    
-    local mqKey = constants.MACCMDQUEREQ_PREFIX + devAddr;
-    return dlkCmdQue.getAll(mqKey)
-      .then((dlkArr) => {
-
-        // misMatchIndex is index in downlink queue
-        // first cmd answer in uplink array mismatched cmd req in downlink que
-        let misMatchIndex = -1;
-        let matchIndex = 0;
-
-        // validate and process cmd in uplink array 'cmds'
-        for (let i = 0; i < cmds.length; i++) {
-          let cid;
-          for (let key in cmds[i]) {
-            if (cmds[i].hasOwnProperty(key)) {
-              cid = key;
-            }
-          }
-
-          // process cmd req from device (cid = 0x01 0x02 0x0B 0x0D)
-          if (constants.QUEUE_CMDANS_LIST.indexOf(parseInt(cid, 16)) !== -1) {
-            processFlow.push(_this.__getCmdHandlerFunc(devAddr, parseInt(cid, 16), cmds[i][cid], remains));
-            continue;
-          }
-
-          // match cmd answers from device with req in downlink queue
-          let dlkcid = null;
-          if (dlkArr.length > 0 && matchIndex < dlkArr.length) {
-            let dlkobj = JSON.parse(dlkArr[matchIndex]);
-            for (let key in dlkobj) {
-              if (dlkobj.hasOwnProperty(key)) {
-                dlkcid = key;
-              }
-            }
-          }
-
-          if (matchIndex < dlkArr.length && cid === dlkcid) {
-            matchIndex++;
-            processFlow.push(_this.__getCmdHandlerFunc(devAddr, parseInt(cid, 16), cmds[i][cid], remains));
-          } else {
-            if (misMatchIndex === -1) {
-              log.debug({
-                label: 'uplink cmd mismatched with downlink cmd queue',
-                message: {
-                  uplinkIndex: i,
-                  uplinkCid: cid,
-                  downlinkIndex: matchIndex,
-                  downlinkCid: dlkcid,
-                },
-              });
-            }
-
-            misMatchIndex = misMatchIndex === -1 ? matchIndex : misMatchIndex;
-          }
-
-        }
-
-        // cmds in uplink array more than cmds in downlink queue
-        if (misMatchIndex > dlkArr.length) {
-          misMatchIndex = dlkArr.length;
-        }
-
-        // trim (repush downlink cmd request into queue)
-        let startPos = misMatchIndex === -1 ? matchIndex : misMatchIndex;
-        return dlkCmdQue.trim(mqKey, startPos, -1);
-      }).then(() => {
-
-        /* process uplink status of adr device */
-
-        // push adr device status handler function
-        if (isAdr) {
-          processFlow.push(_this.adrControlScheme.adrHandler.bind(
-            _this.adrControlScheme, devAddr, remains.devtx));
-        }
-
-        /* process all command and adr report sequentially */
-        return BluebirdPromise.map(processFlow, function (process) {
-          return process();
-        });
-      }).catch((err) => {
-        log.error(err.stack);
-      });
-
+local function GetCidIndex(cmdTbl)
+  for k,_ in pairs(cmdTbl) do
+    return k
+  end
 end
 
---   /**
---    * return promise of uplink command handler
---    */
---   __getCmdHandlerFunc(devaddr, cid, payload, remains) {
+-- 指向的值是否在表中存在辞职
+local function IsExistInCmdTbl(tbl, val)
 
---     let _this = this;
+  local cmd
+  if type(val) == "string" then
+    cmd = tonumber(val)
+  elseif type(val) == "number" then
+    cmd = val
+  else
+    return nil
+  end
+   
+  for _,v in pairs(tbl) do
+    if v == cmd then
+      return true
+    end
+  end
+  return false
+end
 
---     // switch cid to select 'devtx', 'gwrx' in remains
---     // and to select command handler
---     // fn.bind(_this, ...) is to use 'mysqlConn', 'redisConn' and 'log' of processFlow
---     let fn = MacCommandHandler[cid];
+--
+-- process mac command and uplink status report of adr device sequentially
+--
+function process(messageObj)
+  if
+    messageObj.DevAddr == nil or messageObj.adr == nil or messageObj.data == nil or messageObj.devtx == nil or
+      messageObj.gwrx == nil
+   then
+    p("Invalid message from kafka, Message ${JSON.stringify(messageObj)}")
+    return nil
+  end
 
---     let cmdHandlerFuncs = {
+  local devAddr = utiles.BufferToHexString(messageObj.DevAddr)
+  local isAdr = messageObj.adr
+  local cmds = messageObj.data
+  local remains = {
+    devtx = messageObj.devtx,
+    gwrx = messageObj.gwrx
+  }
 
---       // LoRaWAN 1.0 Device Request
---       [constants.LINKCHECK_CID]: fn.bind(_this, devaddr, remains.devtx, remains.gwrx),
+  -- let _this = this;
+  local dlkCmdQue = DownlinkCmdQueue
+  -- let log = this.log;
+  local processFlow = {}
 
---       // LoRaWAN 1.0 Device Answer
---       // TODO add 'payload' in fn.bind
---       [constants.LINKADR_CID]: fn.bind(_this, devaddr, payload),
---       [constants.DEVSTATUS_CID]: fn.bind(_this, devaddr, payload),
---       [constants.RXPARAMSETUP_CID]: fn.bind(_this, devaddr, payload),
---       [constants.RXTIMINGSETUP_CID]: fn.bind(_this, devaddr, payload),
---       [constants.NEWCHANNEL_CID]: fn.bind(_this, devaddr, payload),
---       [constants.DUTYCYCLE_CID]: fn.bind(_this, devaddr, payload),
+  -- process mac commands (req and ans)
 
---       // LoRaWAN 1.1 Device Request
---       // TODO
---       [constants.RESET_CID]: fn.bind(_this, devaddr, payload),
---       [constants.REKEY_CID]: fn.bind(_this, devaddr, payload),
---       [constants.DEVICETIME_CID]: fn.bind(_this, devaddr, payload, remains.gwrx),
+  if devAddr == nil or cmds == nil then
+    p("Lack of devAddr or data from kafka message", devAddr, cmds)
+  end
 
---       // LoRaWAN 1.1 Device Answer
---       // TODO add 'payload' in fn.bind
---       [constants.ADRPARAMSETUP_CID]: fn.bind(_this, devaddr, payload),
---       [constants.DLCHANNEL_CID]: fn.bind(_this, devaddr, payload),
---       [constants.TXPARAMSETUP_CID]: fn.bind(_this, devaddr, payload),
---       [constants.REJOINPARAMSETUP_CID]: fn.bind(_this, devaddr, payload),
---       default: BluebirdPromise.resolve(),
---     };
+  -- get all commands in downlink queue
 
---     return cmdHandlerFuncs[cid] || cmdHandlerFuncs['default'];
---   }
--- }
+  local dlkArr = dlkCmdQue.getAll(devAddr)
+  if dlkArr then
+    -- misMatchIndex is index in downlink queue
+    -- first cmd answer in uplink array mismatched cmd req in downlink que
+    local misMatchIndex = -1
+    local matchIndex = 1
 
--- module.exports = ProcessFlow;
+    -- validate and process cmd in uplink array 'cmds'
+    for i = 1, #cmds do
+      local cid = GetCidIndex(cmds[i])
+
+      -- process cmd req from device (cid = 0x01 0x02 0x0B 0x0D)
+      if IsExistInCmdTbl(constants.QUEUE_CMDANS_LIST, cid) == true then
+        -- continue;
+        __getCmdHandlerFunc(devAddr, cid, cmds[i][cid], remains)
+      else
+        -- match cmd answers from device with req in downlink queue
+        local dlkcid = nil
+        if (dlkArr.length > 0 and matchIndex < dlkArr.length) then
+          local dlkobj = JSON.parse(dlkArr[matchIndex])
+          for key, _ in pairs(dlkobj) do
+            if (dlkobj.hasOwnProperty(key)) then
+              dlkcid = key
+            end
+          end
+        end
+
+        if (matchIndex < dlkArr.length and cid == dlkcid) then
+          matchIndex = matchIndex + 1
+          processFlow.push(_this.__getCmdHandlerFunc(devAddr, parseInt(cid, 16), cmds[i][cid], remains))
+        else
+          if (misMatchIndex == -1) then
+            p(
+              "uplink cmd mismatched with downlink cmd queue",
+              {
+                uplinkIndex = i,
+                uplinkCid = cid,
+                downlinkIndex = matchIndex,
+                downlinkCid = dlkcid
+              }
+            )
+          end
+          if misMatchIndex == -1 then
+            misMatchIndex = matchIndex
+          else
+            misMatchIndex = misMatchIndex
+          end
+        end
+      end
+    end
+
+    -- cmds in uplink array more than cmds in downlink queue
+    if misMatchIndex > dlkArr.length then
+      misMatchIndex = dlkArr.length
+    end
+
+    -- trim (repush downlink cmd request into queue)
+    -- local startPos  -- =  misMatchIndex == -1 ? matchIndex : misMatchIndex;
+    -- if misMatchIndex == -1 then
+    --   startPos = matchIndex
+    -- else
+    --   startPos = misMatchIndex
+    -- end
+    -- dlkCmdQue.trim(devAddr, startPos, -1)
+  end
+
+  -- process uplink status of adr device
+
+  -- push adr device status handler function
+  if isAdr ~= 0 then
+    processFlow.push(adrControlScheme.adrHandler.bind(_this.adrControlScheme, devAddr, remains.devtx))
+  end
+
+  -- process all command and adr report sequentially
+  -- return BluebirdPromise.map(
+  --   processFlow,
+  --   function(process)
+  --     return process()
+  --   end
+  -- )
+  p("process all command and adr report sequentially", dlkCmdQue.checkQueueLength(devAddr))
+end
+
+--
+-- return promise of uplink command handler
+--
+function __getCmdHandlerFunc(devaddr, cid, payload, remains)
+  cid = tonumber(cid)
+  -- switch cid to select 'devtx', 'gwrx' in remains
+  -- and to select command handler
+  -- fn.bind(_this, ...) is to use 'mysqlConn', 'redisConn' and 'log' of processFlow
+  local fn = MacCommandHandler[cid]
+
+  return utiles.switch(cid) {
+    -- LoRaWAN 1.0 Device Request
+    [constants.LINKCHECK_CID] = function()
+      return fn(devaddr, remains.devtx, remains.gwrx)
+    end,
+    -- LoRaWAN 1.0 Device Answer
+    -- TODO add 'payload' in fn.bind
+    [constants.LINKADR_CID] = function()
+      return fn(devaddr, payload)
+    end,
+    [constants.DEVSTATUS_CID] = function()
+      return fn(devaddr, payload)
+    end,
+    [constants.RXPARAMSETUP_CID] = function()
+      return fn(devaddr, payload)
+    end,
+    [constants.RXTIMINGSETUP_CID] = function()
+      return fn(devaddr, payload)
+    end,
+    [constants.NEWCHANNEL_CID] = function()
+      return fn(devaddr, payload)
+    end,
+    [constants.DUTYCYCLE_CID] = function()
+      return fn(devaddr, payload)
+    end,
+    -- LoRaWAN 1.1 Device Request
+    -- TODO
+    [constants.RESET_CID] = function()
+      return fn(devaddr, payload)
+    end,
+    [constants.REKEY_CID] = function()
+      return fn(devaddr, payload)
+    end,
+    [constants.DEVICETIME_CID] = function()
+      return fn(devaddr, payload, remains.gwrx)
+    end,
+    -- LoRaWAN 1.1 Device Answer
+    -- TODO add 'payload' in fn.bind
+    [constants.ADRPARAMSETUP_CID] = function()
+      return fn(devaddr, payload)
+    end,
+    [constants.DLCHANNEL_CID] = function()
+      return fn(devaddr, payload)
+    end,
+    [constants.TXPARAMSETUP_CID] = function()
+      return fn(devaddr, payload)
+    end,
+    [constants.REJOINPARAMSETUP_CID] = function()
+      return fn(devaddr, payload)
+    end,
+    [utiles.Default] = function()
+      p("item is other, please check it.", cid)
+      return nil
+    end,
+    [utiles.Nil] = function()
+      p("cid is nil")
+    end
+  }
+end
+
+return {
+  process = process
+}

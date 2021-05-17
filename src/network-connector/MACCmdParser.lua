@@ -24,14 +24,14 @@ function parser(macCommand)
     p("macCommand is nil")
     return nil
   end
-  local cmd = macCommand
+  local cmd = macCommand -- utiles.BufferFromHexString(macCommand:toString())
   local ansLen = 0
   local cmdArr = {}
   while cmd.length do
     local cid = cmd:readInt8(consts.CID_OFFEST + 1)
     local payloadJson
     local offest
-    local payload = nil
+    local payload = {}
     local cidTmp = cid
     if cidTmp == consts.RESET_CID then
       offest = consts.PAYLOAD_OFFEST + 1 + consts.RESETIND_LEN
@@ -102,12 +102,12 @@ function parser(macCommand)
       return {cmdArr = cmdArr, ansLen = ansLen}
     end
     payloadJson = {
-      [cid:toString()] = payload
+      [string.format("%d", cid)] = payload
     }
     table.insert(cmdArr, payloadJson)
 
     if offest > cmd.length then
-      p("Invalid format of MACCommand payload")
+      p("end ... Invalid format of MACCommand payload")
       break
     else
       cmd = utiles.BufferSlice(cmd, offest, cmd.length)

@@ -72,12 +72,14 @@ function reverse(buf)
     p("buf must be a buffer type.")
     return nil
   end
-  for i = 1, buf.length / 2 do
-    local temp = buf[i]
-    buf[i] = buf[buf.length - i + 1]
-    buf[buf.length - i + 1] = temp
+  local bufTmp = buffer:new(buf.length)
+  bufTmp = BufferCopy(bufTmp, 1, buf, 1, buf.length)
+  for i = 1, bufTmp.length / 2 do
+    local temp = bufTmp[i]
+    bufTmp[i] = bufTmp[bufTmp.length - i + 1]
+    bufTmp[bufTmp.length - i + 1] = temp
   end
-  return buf
+  return bufTmp
 end
 
 -- 大端转小端
@@ -237,12 +239,54 @@ function BufferFill(targetBuffer, val, startIndex, endIndex)
   end
 end
 
+function BufferXor(buf1, buf2)
+  for ind = 1, buf1.length do
+    buf1[ind] = bit.bxor(buf1[ind], buf2[ind])
+  end
+  return buf1
+end
+
+function BufferFrom(src)
+  local newBuf = buffer:new(src.length)
+  newBuf = BufferCopy(newBuf, 1, src, 1, src.length)
+  return newBuf
+end
+
 function BufferToTable(srcBuffer)
   local tmp = {}
   for i = 1, srcBuffer.length, 1 do
     tmp[i] = srcBuffer[i]
   end
   return tmp
+end
+
+function numToHexBuf(num, buf_len)
+
+  -- if buf_len == nil or num < 0 then
+  --   return buffer:new(0);
+  -- end
+
+  -- local str = num.toString(16);
+  -- local str_len = buf_len * 2;
+
+  -- local tmp = Buffer.alloc(buf_len).toString('hex');
+  -- local fill_len = str_len - str.length;
+  -- if (fill_len >= 0) then
+  --   str = tmp.substr(0, fill_len) + str;
+  -- else
+  --   str = str.substr(fill_len);
+  -- end
+
+  -- return Buffer.from(str, 'hex');
+end
+
+function numToBuf(num, buf_len)
+  local newBuf = buffer:new(1)
+  -- for i=1, buf_len do
+  --   newBuf[i] = num
+  -- end
+  newBuf[1] = num
+  return newBuf
 end
 
 -- bit写值
@@ -256,7 +300,7 @@ function bitwiseAssigner(objByte, offset, len, value)
   -- BUFFER NEEDS TO BE READED AS UINT BEFORE BITWISE OPERATIONS
   local srcBits = bit.band(bit.band(objByte:readUInt8(1), bit.bnot(filterBits)), 0xFF)
   local destBits = bit.band(bit.lshift(value, offset), filterBits)
-  objByte:writeUInt8(1,srcBits + destBits)
+  objByte:writeUInt8(1, srcBits + destBits)
   return objByte
 end
 
@@ -284,14 +328,17 @@ return {
   BufferFill = BufferFill,
   BufferToTable = BufferToTable,
   BufferConcat = BufferConcat,
+  BufferFrom = BufferFrom,
   BufferFromHexString = BufferFromHexString,
   BufferToAsciiString = BufferToAsciiString,
   BEToLE = BEToLE,
   LEToBE = LEToBE,
+  numToBuf = numToBuf,
   reverse = reverse,
   printBuf = printBuf,
   bitwiseAssigner = bitwiseAssigner,
   switch = switch,
   Default = Default,
+  BufferXor = BufferXor,
   Nil = Nil
 }

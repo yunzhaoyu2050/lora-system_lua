@@ -24,8 +24,11 @@ function handler(message)
   -- local whereOpts = {
   --   DevAddr = message.DevAddr
   -- }
-  local appFRMPayloadBuf = utiles.BufferFrom(message.FRMPayload)
-  p(" >>>> appFRMPayloadBuf:", appFRMPayloadBuf:toString())
+  if message.FRMPayload ~= nil then
+    p("message.FRMPayload:", message.FRMPayload)
+    local appFRMPayloadBuf = utiles.BufferFrom(message.FRMPayload)
+    p(" >>>> appFRMPayloadBuf:", appFRMPayloadBuf:toString())
+  end
   -- TODO
   -- According to the needs, customize the way of data processing.
   -- Such as publish the data to Cloud's topic

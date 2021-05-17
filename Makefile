@@ -4,7 +4,7 @@ ARCH:=$(shell uname -m)
 .PHONY:all clean
 
 all:git luvi luvit openssl luv
-	@echo "build..."
+	@echo "build end..."
 git:
 	@git submodule update --init --recursive
 luvi:
