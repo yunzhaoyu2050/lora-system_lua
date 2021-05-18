@@ -17,6 +17,10 @@ opensslLib="$curPath/deps/lua-openssl/?.so" # openssl.so
 
 luvLib="$curPath/deps/luvi/deps/luv/?.so"
 
+logLib="$curPath/deps/lualogging/src/?.lua;" # log 
+
 CPATH="${debugLib};${opensslLib};${luvLib};"
 
-sudo LUA_CPATH="$CPATH;$LUA_CPATH" ./deps/luvit-x86_64 $1
+PPATH="${logLib};"
+
+sudo LUA_PATH="${PPATH}" LUA_CPATH="$CPATH;$LUA_CPATH" ./deps/luvit-x86_64 $1

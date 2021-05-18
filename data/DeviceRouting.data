@@ -1,1 +1,1 @@
-{"00":{"datr":"","DevAddr":"","gatewayId":"","tmst":"","freq":"","rfch":"","powe":"","modu":"","codr":"","ipol":false,"imme":false}}
+{"00516a59":{"powe":25,"tmst":1626352124,"imme":false,"DevAddr":"00516a59","freq":500.3,"rfch":0,"gatewayId":"0004f2fffe31b2bb","datr":"SF7BW125","modu":"LORA","codr":"4/5","ipol":true},"00":{"powe":"","DevAddr":"","imme":false,"tmst":"","freq":"","rfch":"","gatewayId":"","datr":"","modu":"","codr":"","ipol":false}}

@@ -60,9 +60,29 @@ end
 
 -- buffer连接
 function BufferConcat(srcBuf, dstBuf)
-  local newBuf = buffer:new(srcBuf.length + dstBuf.length)
-  ffi.copy(newBuf.ctype + 1 - 1, srcBuf.ctype, srcBuf.length)
-  ffi.copy(newBuf.ctype + srcBuf.length, dstBuf.ctype, dstBuf.length)
+  local newBuf = nil
+  if type(srcBuf) == "table" and dstBuf == nil then
+    local newBufLen = 0
+    for i = 1, #srcBuf do
+      newBufLen = newBufLen + srcBuf[i].length
+    end
+    newBuf = buffer:new(newBufLen)
+    BufferFill(newBuf,0)
+    local offset = 0
+    for i = 1, #srcBuf do
+      if i == 1 then
+        ffi.copy(newBuf.ctype, srcBuf[i].ctype, srcBuf[i].length)
+      else
+        ffi.copy(newBuf.ctype + offset + srcBuf[i - 1].length, srcBuf[i].ctype, srcBuf[i].length)
+        offset = offset + srcBuf[i - 1].length
+      end
+      -- printBuf(newBuf)
+    end
+  else
+    newBuf = buffer:new(srcBuf.length + dstBuf.length)
+    ffi.copy(newBuf.ctype + 1 - 1, srcBuf.ctype, srcBuf.length)
+    ffi.copy(newBuf.ctype + srcBuf.length, dstBuf.ctype, dstBuf.length)
+  end
   return newBuf
 end
 
@@ -261,14 +281,11 @@ function BufferToTable(srcBuffer)
 end
 
 function numToHexBuf(num, buf_len)
-
   -- if buf_len == nil or num < 0 then
   --   return buffer:new(0);
   -- end
-
   -- local str = num.toString(16);
   -- local str_len = buf_len * 2;
-
   -- local tmp = Buffer.alloc(buf_len).toString('hex');
   -- local fill_len = str_len - str.length;
   -- if (fill_len >= 0) then
@@ -276,7 +293,6 @@ function numToHexBuf(num, buf_len)
   -- else
   --   str = str.substr(fill_len);
   -- end
-
   -- return Buffer.from(str, 'hex');
 end
 
@@ -319,6 +335,40 @@ function switch(i)
   )
 end
 
+-- 索引值是否在表中存在
+-- @param tbl 表
+-- @param val 数值
+-- @return true, false
+local function IsIndexInList(tbl, val)
+  local cmd
+  if type(val) == "string" then
+    cmd = tonumber(val)
+  elseif type(val) == "number" then
+    cmd = val
+  else
+    return nil
+  end
+  for k, _ in pairs(tbl) do
+    if k == cmd then
+      return true
+    end
+  end
+  return false
+end
+
+-- 数值是否在表中存在
+-- @param tbl 表
+-- @param val 数值
+-- @return true, false
+local function IsValueInList(tbl, val)
+  for _, v in pairs(tbl) do
+    if v == val then
+      return true
+    end
+  end
+  return false
+end
+
 return {
   CalcVersusValue = CalcVersusValue,
   BufferSlice = BufferSlice,
@@ -340,5 +390,7 @@ return {
   switch = switch,
   Default = Default,
   BufferXor = BufferXor,
-  Nil = Nil
+  Nil = Nil,
+  IsIndexInList = IsIndexInList,
+  IsValueInList = IsValueInList
 }

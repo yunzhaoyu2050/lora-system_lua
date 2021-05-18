@@ -44,13 +44,13 @@ return function(devAddr, devtx, gwrx)
   }
 
   -- push cmd ans into queue
-  -- const mqKey = constants.MACCMDQUEANS_PREFIX + devAddr;
-  DownlinkCmdQueue.produce(devAddr, outputObj)
+  local mqKey = constants.MACCMDQUEANS_PREFIX .. devAddr;
+  DownlinkCmdQueue.produce(mqKey, outputObj)
   p(
     {
       label = "MAC Command Ans",
       message = {
-        LinkCheckAns = devAddr,
+        LinkCheckAns = mqKey,
         payload = outputObj
       }
     }

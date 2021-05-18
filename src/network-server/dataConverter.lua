@@ -181,14 +181,19 @@ end
 
 function downlinkAppConverter(txJson, downlinkJson, uplinkInfo)
   local outputObject = {}
-  outputObject.version = uplinkInfo.version
-  if uplinkInfo.srcID and uplinkInfo.srcID.length > 0 then
-    outputObject.dstID = uplinkInfo.srcID
-  end
 
-  outputObject.token = crypto.randomBytes(consts.UDP_TOKEN_LEN)
-  outputObject.identifier = buffer:new(consts.UDP_IDENTIFIER_LEN)
-  outputObject.identifier.writeUInt8(consts.UDP_ID_PULL_RESP, "hex")
+  outputObject.version = uplinkInfo.version
+  -- if uplinkInfo.srcID and uplinkInfo.srcID.length > 0 then
+  --   outputObject.dstID = uplinkInfo.srcID
+  -- end
+
+  outputObject.token = crypto.rand.bytes(consts.UDP_TOKEN_LEN)
+  outputObject.token = crypto.hex(outputObject.token)
+
+  -- outputObject.identifier = buffer:new(consts.UDP_IDENTIFIER_LEN)
+  -- outputObject.identifier:writeUInt8(1, consts.UDP_ID_PULL_RESP)
+  outputObject.identifier = consts.UDP_ID_PULL_RESP
+
   outputObject.gatewayId = txJson.gatewayId
 
   local function generateTxpkJson()
@@ -218,6 +223,9 @@ function downlinkAppConverter(txJson, downlinkJson, uplinkInfo)
       FCtrlJson.ADR = uplinkInfo.MACPayload.FHDR.FCtrl.ADR
     end
 
+    -- 4.3.1.4 帧挂起位(FPending in FCtrl 只在下行有效)
+    -- 帧挂起位(FPending)只在下行交互中使用， 表示网关还有挂起数据等待下发， 需要终端尽快
+    -- 发送上行消息来再打开一个接收窗口。
     if downlinkJson.FPending > 0 then
       FCtrlJson.FPending = downlinkJson.FPending
     else
@@ -233,10 +241,10 @@ function downlinkAppConverter(txJson, downlinkJson, uplinkInfo)
     FHDRJson.FCtrl = FCtrlJson
     FHDRJson.FCnt = buffer:new(consts.FCNT_LEN)
     -- // FHDRJson.FCnt.writeUInt32BE(txJson.DeviceInfo.AFCntDown);
-    FHDRJson.FCnt.writeUInt16BE(1, txJson.AFCntDown) -- writeUInt32BE
+    FHDRJson.FCnt:writeUInt16LE(1, txJson.AFCntDown) -- writeUInt32BE
 
     if downlinkJson.FOpts then
-      FHDRJson.FOpts = downlinkJson.FOpts
+      FHDRJson.FOpts = downlinkJson.FOpts --[1] -- 当前只处理一个mac数据
     else
       FHDRJson.FOpts = buffer:new(0)
     end
@@ -327,33 +335,13 @@ end
 -- app-accept消息下行数据处理单元
 function applicationAcceptHandler(applicationAcceptJson)
   -- let _this = this;
-  local devAddr = utiles.BufferToHexString(applicationAcceptJson.DevAddr)
-  local FRMPayload = applicationAcceptJson.FRMPayload
+  -- local devAddr = utiles.BufferToHexString(applicationAcceptJson.DevAddr)
+  -- local FRMPayload = applicationAcceptJson.FRMPayload
   -- const msgQueKey = consts.DOWNLINK_MQ_PREFIX + devAddr;
-  return _this.redisConnMsgQue.produceByHTTP(msgQueKey, FRMPayload) -- 将处理好的数据发给connector模块
+  -- return _this.redisConnMsgQue.produceByHTTP(msgQueKey, FRMPayload) -- 将处理好的数据发给connector模块
+  return "other", applicationAcceptJson
 end
 
--- DataConverter.prototype.mongooseSave = function (collectionName, mongoSavedObj) {
-
---   //The message is saved in mongo db
---   let msgModel;
-
---   switch (collectionName) {
-
---     //TODO
---     default:
---       break;
---   }
-
---   try {
---     msgModel = mongoose.model(collectionName);
---   } catch (err) {
---     msgModel = mongoose.model(collectionName, mongoSavedSchema, collectionName);
---   }
-
---   return msgModel.create(mongoSavedObj);
--- };
--- module.exports = DataConverter;
 return {
   uplinkDataHandler = uplinkDataHandler,
   joinAcceptHandler = joinAcceptHandler,

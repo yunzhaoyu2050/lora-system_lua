@@ -19,14 +19,13 @@ local DownlinkCmdQueue = require("../lora-lib/models/RedisModels/DownlinkCmdQueu
 --   }
 
 local function GetCidIndex(cmdTbl)
-  for k,_ in pairs(cmdTbl) do
+  for k, _ in pairs(cmdTbl) do
     return k
   end
 end
 
--- 指向的值是否在表中存在辞职
+-- 指向的值是否在表中存
 local function IsExistInCmdTbl(tbl, val)
-
   local cmd
   if type(val) == "string" then
     cmd = tonumber(val)
@@ -35,8 +34,8 @@ local function IsExistInCmdTbl(tbl, val)
   else
     return nil
   end
-   
-  for _,v in pairs(tbl) do
+
+  for _, v in pairs(tbl) do
     if v == cmd then
       return true
     end
@@ -76,8 +75,8 @@ function process(messageObj)
   end
 
   -- get all commands in downlink queue
-
-  local dlkArr = dlkCmdQue.getAll(devAddr)
+  local mqKey = constants.MACCMDQUEREQ_PREFIX .. devAddr;
+  local dlkArr = dlkCmdQue.getAll(mqKey)
   if dlkArr then
     -- misMatchIndex is index in downlink queue
     -- first cmd answer in uplink array mismatched cmd req in downlink que
@@ -121,7 +120,7 @@ function process(messageObj)
           end
           if misMatchIndex == -1 then
             misMatchIndex = matchIndex
-          else
+          else  
             misMatchIndex = misMatchIndex
           end
         end
@@ -129,18 +128,19 @@ function process(messageObj)
     end
 
     -- cmds in uplink array more than cmds in downlink queue
-    if misMatchIndex > dlkArr.length then
-      misMatchIndex = dlkArr.length
+    local dowQueueLen = DownlinkCmdQueue.checkQueueLength(mqKey)
+    if misMatchIndex > dowQueueLen then
+      misMatchIndex = dowQueueLen
     end
 
-    -- trim (repush downlink cmd request into queue)
-    -- local startPos  -- =  misMatchIndex == -1 ? matchIndex : misMatchIndex;
-    -- if misMatchIndex == -1 then
-    --   startPos = matchIndex
-    -- else
-    --   startPos = misMatchIndex
-    -- end
-    -- dlkCmdQue.trim(devAddr, startPos, -1)
+  -- trim (repush downlink cmd request into queue)
+  -- local startPos  -- =  misMatchIndex == -1 ? matchIndex : misMatchIndex;
+  -- if misMatchIndex == -1 then
+  --   startPos = matchIndex
+  -- else
+  --   startPos = misMatchIndex
+  -- end
+  -- dlkCmdQue.trim(devAddr, startPos, -1)
   end
 
   -- process uplink status of adr device
@@ -157,7 +157,7 @@ function process(messageObj)
   --     return process()
   --   end
   -- )
-  p("process all command and adr report sequentially", dlkCmdQue.checkQueueLength(devAddr))
+  p("process all command and adr report sequentially", dlkCmdQue.checkQueueLength(mqKey))
 end
 
 --

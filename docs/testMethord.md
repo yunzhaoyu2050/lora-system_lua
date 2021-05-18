@@ -31,6 +31,10 @@ optional arguments:
 
 ## lorawan server 测试方法
 
+0、pull data类型数据测试
+
+  pipenv run python main.py pull
+
 1、入网请求测试
 
   pipenv run python main.py -n join

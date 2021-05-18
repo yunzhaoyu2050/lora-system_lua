@@ -10,6 +10,11 @@ local _cfi = {
     ip = nil,
     port = nil
   },
+  log = {
+    logLevel = nil,
+    logOutType = nil,
+    logPath = nil
+  },
   loraWan = {
     fcntCheckEnable = nil,
     downlinkDataDelay = nil,
@@ -38,6 +43,9 @@ local function _setConfigFile(tcfg)
   _cfi.gateWay.enableIpol = tcfg.gateWay.enableIpol or false
   _cfi.gateWay.enableNcrc = tcfg.gateWay.enableNcrc or false
   _cfi.gateWay.enableRfch = tcfg.gateWay.enableRfch or 0
+  _cfi.log.logLevel = tcfg.log.logLevel or "INFO"
+  _cfi.log.logOutType = tcfg.log.logOutType or "terminal"
+  _cfi.log.logPath = tcfg.log.logPath or "./"
   return 0
 end
 
@@ -107,6 +115,18 @@ function _gerEnableRfch()
   return _cfi.gateWay.enableRfch
 end
 
+function _gerLogLevel()
+  return _cfi.log.logLevel
+end
+
+function _gerLogOutType()
+  return _cfi.log.logOutType
+end
+
+function _gerLogPath()
+  return _cfi.log.logPath
+end
+
 return {
   Init = _init,
   GetDataPath = _getDataPath,
@@ -118,5 +138,8 @@ return {
   GetEnableImme = _getEnableImme,
   GetEnableIpol = _getEnableIpol,
   GerEnableNcrc = _gerEnableNcrc,
-  GerEnableRfch = _gerEnableRfch
+  GerEnableRfch = _gerEnableRfch,
+  GerLogLevel = _gerLogLevel,
+  GerLogOutType = _gerLogOutType,
+  GerLogPath = _gerLogPath
 }

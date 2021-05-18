@@ -3,14 +3,12 @@ local DeviceInfoMysql = require("../lora-lib/models/MySQLModels/DeviceInfo.lua")
 local DeviceRoutingMysql = require("../lora-lib/models/MySQLModels/DeviceRouting.lua")
 local DeviceConfigMysql = require("../lora-lib/models/MySQLModels/DeviceConfig.lua")
 local basexx = require("../../deps/basexx/lib/basexx.lua")
--- local base64x = require("../../utiles/base64.lua")
 local macCmdParser = require("./MACCmdParser.lua")
 local consts = require("../lora-lib/constants/constants.lua")
 local phyUtils = require("./phyUtils.lua")
 local joinHandler = require("./joinHandler.lua")
 local buffer = require("buffer").Buffer
 local bit = require("bit")
--- local ffi = require("ffi")
 local utiles = require("../../utiles/utiles.lua")
 
 -- @info phyLayer层解析

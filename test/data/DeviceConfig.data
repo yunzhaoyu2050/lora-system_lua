@@ -27,6 +27,6 @@
     "RX2DataRate": 0,
     "CFList": "",
     "DevAddr": "00516a59",
-    "frequencyPlan": 470.3
+    "frequencyPlan": "CN470-510"
   }
 }

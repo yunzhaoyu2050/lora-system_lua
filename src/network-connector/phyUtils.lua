@@ -3,15 +3,8 @@ local buffer = require("buffer").Buffer
 local consts = require("../lora-lib/constants/constants.lua")
 local aesCmac = require("../../utiles/node-aes-cmac-lua/lib/aes-cmac.lua").aesCmac
 local crypto = require("../../deps/lua-openssl/lib/crypto.lua")
--- const { consts, utils } = require('../lora-lib');
--- const cmac = require('node-aes-cmac').aesCmac;
--- const crypto = require('crypto');
--- const reverse = utils.bufferReverse;
 
--- const _this = new function () {
---   /*
---    * Basic block for encryption and MIC
---    */
+-- Basic block for encryption and MIC
 local function basicVerifyBlock(requiredFields, classification, direction)
   local block = buffer:new(consts.BLOCK_LEN)
   utiles.BufferFill(block, 0, 1, block.length)
@@ -99,20 +92,12 @@ function decrypt(requiredFields, key, direction)
 end
 
 -- mic 计算
--- requiredFields
---  .MHDR
---  .FHDR
---  .DevAddr
---  .FCnt
---  .FPort
---  .FRMPayload
--- key -> NwkSKey
 function micCalculator(requiredFields, key, direction)
   local msg = utiles.BufferConcat(requiredFields.MHDR, requiredFields.FHDR)
-  if (requiredFields.FPort) then
+  if requiredFields.FPort then
     msg = utiles.BufferConcat(msg, requiredFields.FPort)
   end
-  if (requiredFields.FRMPayload) then
+  if requiredFields.FRMPayload and requiredFields.FRMPayload.length ~= 0 then
     msg = utiles.BufferConcat(msg, requiredFields.FRMPayload)
     p("msg:", utiles.BufferToHexString(msg))
   end
@@ -122,7 +107,6 @@ function micCalculator(requiredFields, key, direction)
   block[consts.BLOCK_LENMSG_OFFSET + 1] = msg.length
   p("   block:", utiles.BufferToHexString(block))
   local cmacBlock = utiles.BufferConcat(block, msg, consts.BLOCK_LEN + msg.length)
-  -- console.log(cmacBlock);
   p("   cmacBlock:", utiles.BufferToHexString(cmacBlock))
   -- local options = {returnAsBuffer = true}
 

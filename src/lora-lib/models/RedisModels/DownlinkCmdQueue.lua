@@ -6,40 +6,56 @@ local DownlinkCmdQueue = {}
 
 DownlinkCmdQueue.table = DownlinkCmdQueueTbl
 
-function DownlinkCmdQueue.checkQueueLength(devaddr) -- 获取队列长度
-  return #DownlinkCmdQueueTbl[devaddr]
+function DownlinkCmdQueue.checkQueueLength(key) -- 获取队列长度
+  return #DownlinkCmdQueueTbl[key]
 end
 
-function DownlinkCmdQueue.getAll(devaddr) -- 获取所有元素
-  if DownlinkCmdQueueTbl[devaddr] == nil then
-    DownlinkCmdQueueTbl[devaddr] = queue.create()
+function DownlinkCmdQueue.getAll(key) -- 获取所有元素
+  if DownlinkCmdQueueTbl[key] == nil then
+    DownlinkCmdQueueTbl[key] = queue.create()
   end
   local out = {
-    length = #DownlinkCmdQueueTbl[devaddr]
+    -- length = #DownlinkCmdQueueTbl[key]
   }
-  for i = 1, #DownlinkCmdQueueTbl[devaddr] do
-    out[i] = DownlinkCmdQueueTbl[devaddr].dequeue()
+  for i = 1, #DownlinkCmdQueueTbl[key] do
+    out[i] = DownlinkCmdQueueTbl[key].dequeue()
   end
   return out
 end
 
-function DownlinkCmdQueue.removeAll(devaddr) -- 删除所有元素
-  DownlinkCmdQueueTbl[devaddr].clear()
-end
+DownlinkCmdQueue.consumeAll = DownlinkCmdQueue.getAll
 
-function DownlinkCmdQueue.consume(devaddr) -- 出队
-  return DownlinkCmdQueueTbl[devaddr].dequeue()
-end
-
-function DownlinkCmdQueue.produce(devaddr, src) -- 入队
-  if DownlinkCmdQueueTbl[devaddr] == nil then
-    DownlinkCmdQueueTbl[devaddr] = queue.create()
+function DownlinkCmdQueue.removeAll(key) -- 删除所有元素
+  if DownlinkCmdQueueTbl[key] == nil then
+    return nil
   end
-  return DownlinkCmdQueueTbl[devaddr].enqueue(src)
+  return DownlinkCmdQueueTbl[key].clear()
+  --return table.remove(DownlinkCmdQueueTbl, key)
 end
 
-function DownlinkCmdQueue.delete(devaddr)  -- 删除对头元素
-  return DownlinkCmdQueueTbl[devaddr].dequeue()
+function DownlinkCmdQueue.consume(key) -- 出队
+  if DownlinkCmdQueueTbl[key] == nil then
+    return nil
+  end
+  if DownlinkCmdQueue.checkQueueLength(key) == 0 then
+    return nil -- table.remove(DownlinkCmdQueueTbl, key)
+  end
+  local ret = DownlinkCmdQueueTbl[key].dequeue()
+  if DownlinkCmdQueue.checkQueueLength(key) == 0 then
+    --table.remove(DownlinkCmdQueueTbl, key)
+  end
+  return ret 
+end
+
+function DownlinkCmdQueue.produce(key, src) -- 入队
+  if DownlinkCmdQueueTbl[key] == nil then
+    DownlinkCmdQueueTbl[key] = queue.create()
+  end
+  return DownlinkCmdQueueTbl[key].enqueue(src)
+end
+
+function DownlinkCmdQueue.delete(key)  -- 删除对头元素
+  return DownlinkCmdQueueTbl[key].dequeue()
 end
 
 -- DownlinkCmdQueue.prototype.trim = function (mq, start, end) {

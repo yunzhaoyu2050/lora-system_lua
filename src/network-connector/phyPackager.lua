@@ -1,13 +1,8 @@
 local utiles = require("../../utiles/utiles.lua")
--- const bluebird = require('bluebird');
--- const { consts, utils } = require('../lora-lib');
--- const phyUtils = require('./phyUtils');
+local phyUtils = require("./phyUtils.lua")
 local MACCmdPackager = require("./MACCmdPackager.lua")
---.MACCmdPackager;
 local MACPackager = MACCmdPackager
--- const reverse = utils.bufferReverse;
 local assign = utiles.bitwiseAssigner
--- const slice = utils.bufferSlice;
 local consts = require("../lora-lib/constants/constants.lua")
 local buffer = require("buffer").Buffer
 local _deviceInfoMysql = require("../lora-lib/models/MySQLModels/DeviceInfo.lua")
@@ -16,33 +11,42 @@ local joinHandler = require("./joinHandler.lua")
 function MHDRPackager(MHDRJSON)
   local MHDR = buffer:new(consts.MHDR_LEN)
   utiles.bitwiseAssigner(MHDR, consts.MTYPE_OFFSET, consts.MTYPE_LEN, MHDRJSON.MType)
-  utiles.bitwiseAssigner(MHDR, consts.MAJOR_OFFSET, consts.MAJON_LEN, MHDRJSON.Major)
+  utiles.bitwiseAssigner(MHDR, consts.MAJOR_OFFSET, consts.MAJOR_LEN, MHDRJSON.Major)
   return MHDR
 end
 
 function FHDRPackager(FHDRJSON)
   local FHDR = buffer:new(consts.FHDR_LEN_BASE)
   local FCtrl = FCtrlPackager(FHDRJSON.FCtrl)
-  utiles.reverse(FHDRJSON.DevAddr).copy(FHDR, consts.MP_DEVADDR_OFFSET)
-  utiles.reverse(FCtrl).copy(FHDR, consts.MP_FCTRL_OFFSET)
-  utiles.slice(FHDRJSON.FCnt, consts.FCNT_LEAST_OFFSET).copy(FHDR, consts.MP_FCNT_OFFSET)
+  local devaddr = utiles.BufferFrom(FHDRJSON.DevAddr)
+  devaddr = utiles.reverse(devaddr)
+  utiles.BufferCopy(FHDR, consts.MP_DEVADDR_OFFSET + 1, devaddr)
+  FCtrl = utiles.reverse(FCtrl)
+  utiles.BufferCopy(FHDR, consts.MP_FCTRL_OFFSET + 1, FCtrl)
 
-  -- //console.log(FHDRJSON);
-  if (FHDRJSON.FCtrl.FOptsLen > 0) then
+  -- utiles.slice(FHDRJSON.FCnt, consts.FCNT_LEAST_OFFSET).copy(FHDR, consts.MP_FCNT_OFFSET)
+  utiles.BufferCopy(FHDR, consts.MP_FCNT_OFFSET + 1, FHDRJSON.FCnt)
+
+  if FHDRJSON.FCtrl.FOptsLen > 0 then
     local FOpts = MACPackager.packager(FHDRJSON.FOpts)
-    -- //console.log(FOpts);
-    FHDR = buffer.concat({FHDR, FOpts})
+    FHDR = utiles.BufferConcat({FHDR, FOpts})
   end
-
   return FHDR
 end
 
 function FCtrlPackager(FCtrlJSON)
   local FCtrl = buffer:new(consts.FCTRL_LEN)
-  assign(FCtrl, consts.FC_ADR_OFFSET, consts.ADR_LEN, FCtrlJSON.ADR)
-  assign(FCtrl, consts.FC_ACK_OFFSET, consts.ACK_LEN, FCtrlJSON.ACK)
-  assign(FCtrl, consts.FC_FPENDING_OFFSET, consts.FPENDING_LEN, FCtrlJSON.FPending)
-  assign(FCtrl, consts.FC_FOPTSLEN_OFFSET, consts.FOPTSLEN, FCtrlJSON.FOptsLen)
+  if FCtrlJSON.ADR == true then
+    FCtrlJSON.ADR = 1
+  elseif FCtrlJSON.ADR == false then
+    FCtrlJSON.ADR = 0
+  else
+    FCtrlJSON.ADR = 0
+  end
+  utiles.bitwiseAssigner(FCtrl, consts.FC_ADR_OFFSET, consts.ADR_LEN, FCtrlJSON.ADR)
+  utiles.bitwiseAssigner(FCtrl, consts.FC_ACK_OFFSET, consts.ACK_LEN, FCtrlJSON.ACK)
+  utiles.bitwiseAssigner(FCtrl, consts.FC_FPENDING_OFFSET, consts.FPENDING_LEN, FCtrlJSON.FPending)
+  utiles.bitwiseAssigner(FCtrl, consts.FC_FOPTSLEN_OFFSET, consts.FOPTSLEN, FCtrlJSON.FOptsLen)
   return FCtrl
 end
 
@@ -57,21 +61,22 @@ function packager(phyPayloadJSON)
   -- const MType = utils.bitwiseFilter(phyPayloadJSON.MHDR, consts.MTYPE_OFFSET, consts.MTYPE_LEN);
   local FIRMED_DATA_DOWN = function()
     -- 配置下发数据
-    if MACPayload.FPort ~= 0 then
+    if MACPayload.FPort:readUInt8(1) ~= 0 then
       MACPayload.FPort = buffer:new(0)
     end
 
-    if MACPayload.FRMPayload == 0 then
-      MACPayload.FRMPayload = buffer.alloc(0)
-    elseif (MACPayload.FPort.readUInt8() == consts.MACCOMMANDPORT.readUInt8()) then
-      MACPayload.FRMPayload = MACPackager.packager(MACPayload.FRMPayload) --mac打包
+    if MACPayload.FRMPayload == nil or MACPayload.FRMPayload.length == 0 then
+      MACPayload.FRMPayload = buffer:new(0)
+    elseif MACPayload.FPort:readUInt8(1) == consts.MACCOMMANDPORT:readUInt8(1) then
+      MACPayload.FRMPayload = MACPackager.packager(MACPayload.FRMPayload) --mac打包在frmpayload字段中
     end
 
     MHDR = MHDRPackager(phyPayloadJSON.MHDR) --mhdr打包
     FHDR = FHDRPackager(MACPayload.FHDR) --fhdr打包
   end
 
-  local JOIN_ACCEPT = function()  -- join accept消息 下行处理
+  local JOIN_ACCEPT = function()
+    -- join accept消息 下行处理
     local devaddr = MACPayload.DevAddr
     local key = _deviceInfoMysql.readItem({DevAddr = devaddr}, {"AppKey"})
     if key ~= nil then
@@ -79,30 +84,44 @@ function packager(phyPayloadJSON)
       return joinHandler.packager(phyPayloadJSON, key.AppKey)
     end
   end
-  
-  local ret = utiles.switch(MType) {
+
+  local ret =
+    utiles.switch(MType) {
     [consts.JOIN_ACCEPT] = JOIN_ACCEPT,
-    [consts.UNCONFIRMED_DATA_DOWN] = FIRMED_DATA_DOWN,
+    [consts.UNCONFIRMED_DATA_DOWN] = FIRMED_DATA_DOWN, -- ?? UNCONFIRMED 不存在下行帧
     [consts.CONFIRMED_DATA_DOWN] = FIRMED_DATA_DOWN
   }
   if ret ~= nil then
     return ret
   end
-  -- TODO:
-  -- 以下是对于FRMPayload的负载情况下的
-  -- //Encryption 加密
+
+  -- local MHDR_FHDR_FPORT =
+  --   utiles.BufferConcat(
+  --   {
+  --     MHDR,
+  --     FHDR,
+  --     MACPayload.FPort
+  --   }
+  -- )
+  -- p("MHDR_FHDR_FPORT:")utiles.printBuf(MHDR_FHDR_FPORT)
+  -- if MACPayload.FHDR.FCtrl.FOptsLen > 0 then
+  --   p("mac cmd in fopts.")
+  --   return MHDR_FHDR_FPORT
+  -- end
+
+  -- frmpayload Encryption 加密
   local direction = buffer:new(consts.DIRECTION_LEN)
-  direction:writeUInt8(consts.BLOCK_DIR_CLASS.Down)
+  direction:writeUInt8(1, consts.BLOCK_DIR_CLASS.Down)
   local DevAddr = MACPayload.FHDR.DevAddr
   local query = {
-    DevAddr = DevAddr
+    DevAddr = utiles.BufferToHexString(DevAddr)
   }
   local attrs = {
     "AppSKey",
     "NwkSKey"
   }
-  -- //query AppSKey
-  -- // return this.DeviceInfo.readItem(query, attrs)
+  -- query AppSKey
+  -- return this.DeviceInfo.readItem(query, attrs)
   local keys = _deviceInfoMysql.readItem(query, attrs)
   if keys ~= nil then
     local encryptionFields = {
@@ -111,15 +130,19 @@ function packager(phyPayloadJSON)
       FCnt = MACPayload.FHDR.FCnt
     }
     local key
-    if MACPayload.FPort.readUInt8() == 0 then
+    if MACPayload.FPort:readUInt8(1) == 0 then
       key = keys.NwkSKey
     else
       key = keys.AppSKey
     end
 
-    MACPayload.FRMPayload = phyUtils.decrypt(encryptionFields, key, direction) --下行加密
+    if MACPayload.FHDR.FCtrl.FOptsLen > 0 then
+      MACPayload.FRMPayload = nil
+    else
+      MACPayload.FRMPayload = phyUtils.decrypt(encryptionFields, key, direction) --下行加密
+    end
     local PHYPayload =
-      buffer.concat(
+      utiles.BufferConcat(
       {
         MHDR,
         FHDR,
@@ -128,15 +151,15 @@ function packager(phyPayloadJSON)
       }
     )
     local micFields = {
-      MHDR,
-      FHDR,
+      MHDR = MHDR,
+      FHDR = FHDR,
       FPort = MACPayload.FPort,
       FRMPayload = MACPayload.FRMPayload,
       DevAddr = MACPayload.FHDR.DevAddr,
       FCnt = MACPayload.FHDR.FCnt
     }
     local MIC = phyUtils.micCalculator(micFields, keys.NwkSKey, direction) -- mic计算
-    PHYPayload = buffer.concat({PHYPayload, MIC})
+    PHYPayload = utiles.BufferConcat({PHYPayload, MIC})
     return PHYPayload
   end
 end

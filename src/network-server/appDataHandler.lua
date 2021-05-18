@@ -104,21 +104,21 @@ function handle(rxInfoArr, appObj)
 
   local isEnable = config.GetFcntCheckEnable()
   if isEnable == true then -- 查看服务器配置是否使能fcnt统计
-    local preFCnt = appObj.FCntUp
-    local newUplinkFCntNum = uplinkFCnt:readUInt16BE(1)
-    local mulNum = preFCnt / 65536
-    local remainderNum = preFCnt % 65536
+    -- local preFCnt = appObj.FCntUp -- TODO:
+    -- local newUplinkFCntNum = uplinkFCnt:readUInt16BE(1)
+    -- local mulNum = preFCnt / 65536
+    -- local remainderNum = preFCnt % 65536
 
-    if newUplinkFCntNum > remainderNum and newUplinkFCntNum - remainderNum < consts.MAX_FCNT_DIFF then
-      newFCnt = mulNum * 65536 + newUplinkFCntNum
-    elseif remainderNum > newUplinkFCntNum and newUplinkFCntNum + 65536 - remainderNum < consts.MAX_FCNT_DIFF then
-      newFCnt = (mulNum + 1) * 65536 + newUplinkFCntNum
-    elseif remainderNum == newUplinkFCntNum then
-      newFCnt = preFCnt
-    else
-      p("Invalid FCnt", uploadDataDevAddr, preFCnt, newUplinkFCntNum)
-      return nil
-    end
+    -- if newUplinkFCntNum > remainderNum and newUplinkFCntNum - remainderNum < consts.MAX_FCNT_DIFF then
+    --   newFCnt = mulNum * 65536 + newUplinkFCntNum
+    -- elseif remainderNum > newUplinkFCntNum and newUplinkFCntNum + 65536 - remainderNum < consts.MAX_FCNT_DIFF then
+    --   newFCnt = (mulNum + 1) * 65536 + newUplinkFCntNum
+    -- elseif remainderNum == newUplinkFCntNum then
+    --   newFCnt = preFCnt
+    -- else
+    --   p("Invalid FCnt", uploadDataDevAddr, preFCnt, newUplinkFCntNum)
+    --   return nil
+    -- end
   else
     newFCnt = uplinkFCnt:readUInt16BE(1)
   end

@@ -3,11 +3,12 @@ local consts = require("../lora-lib/constants/constants.lua")
 local buffer = require("buffer").Buffer
 local MysqlDeviceInfo = require("../lora-lib/models/MySQLModels/DeviceInfo.lua")
 -- 'use strict';
-
+local DownlinkCmdQueue = require("../lora-lib/models/RedisModels/DownlinkCmdQueue.lua")
 -- const BluebirdPromise = require('bluebird');
--- const consts = require('../lora-lib/constants');
--- const config = require('../../config');
+local config = require("../../server_cfg.lua")
 -- const pubNCTopic = config.mqClient_ns.topics.pubToConnector;
+local uv = require("luv")
+local utiles = require("../../utiles/utiles.lua")
 
 -- function DownlinkDataHandler(mqClient, redisConn, mysqlConn, log, options) {
 --   let _this = this;
@@ -49,10 +50,7 @@ function appDataDownlink(uplinkData, convertFn)
   end
 
   local downlinkDataHandler = function(resolve, reject)
-    -- local macCmdQueAnsKey = consts.MACCMDQUEANS_PREFIX + DevAddr.toString('hex');
-    -- local macCmdQueReqKey = consts.MACCMDQUEREQ_PREFIX + DevAddr.toString('hex');
-    -- local msgQueKey = consts.DOWNLINK_MQ_PREFIX + DevAddr.toString('hex');
-
+    local res
     local downlinkJson = {
       FPending = 0,
       FOptsLen = 0,
@@ -71,7 +69,8 @@ function appDataDownlink(uplinkData, convertFn)
 
     -- Get txpk config from db
     -- return _this.mysqlConn.getTxpkInfo(DevAddr).then(function (txJson) {
-    local txJson = RedisDeviceInfo.read(DevAddr)
+    DevAddr = utiles.BufferToHexString(DevAddr)
+    local txJson = RedisDeviceInfo.Read(DevAddr)
 
     -- const frequencyPlan = txJson.DeviceConfig.frequencyPlan;
     local frequencyPlan = txJson.frequencyPlan
@@ -93,163 +92,100 @@ function appDataDownlink(uplinkData, convertFn)
       )
     end
 
+    local macCmdQueAnsKey = consts.MACCMDQUEANS_PREFIX .. DevAddr
+    local macCmdQueReqKey = consts.MACCMDQUEREQ_PREFIX .. DevAddr
+    local msgQueKey = consts.DOWNLINK_MQ_PREFIX .. DevAddr
+
     -- Consume mac cmd answer queue
-    local cmdAnsArr = redisConnMacCmdQue.consumeAll(macCmdQueAnsKey)
-    if cmdAnsArr then
-      -- Mac cmd answer queue has data
-      if cmdAnsArr and cmdAnsArr.length > 0 then
-        downlinkJson.ackbit = 1
-        local macCmdDownLen = getMacCmdDownByteLength(cmdAnsArr)
+    local cmdAnsArrLen = DownlinkCmdQueue.checkQueueLength(macCmdQueAnsKey)
+    local cmdAnsArr = DownlinkCmdQueue.consumeAll(macCmdQueAnsKey) -- ans队列
+    -- Mac cmd answer queue has data
+    if cmdAnsArr and cmdAnsArrLen > 0 then
+      downlinkJson.ackbit = 1
+      local macCmdDownLen = getMacCmdDownByteLength(cmdAnsArr)
 
-        if macCmdDownLen > consts.FOPTS_MAXLEN then
-          downlinkJson.isMacCmdInFRM = true
-          downlinkJson.FRMPayload = cmdAnsArr
+      if macCmdDownLen > consts.FOPTS_MAXLEN then
+        downlinkJson.isMacCmdInFRM = true
+        downlinkJson.FRMPayload = cmdAnsArr
 
-          local remainSize = maxFRMPayloadAndFOptSize - macCmdDownLen
+        local remainSize = maxFRMPayloadAndFOptSize - macCmdDownLen
 
-          if remainSize < 0 then
-            p(
-              "RemainSize less than 0",
-              {
-                DevAddr = DevAddr,
-                macCmdAns = cmdAnsArr,
-                macCmdDownLen = macCmdDownLen,
-                maxSize = maxFRMPayloadAndFOptSize
-              }
-            )
-            return nil
-          end
-
-          local cmdReqArr = redisConnMacCmdQue.read(macCmdQueReqKey)
-          if (cmdReqArr and cmdReqArr.length > 0) then
-            for i = 1, cmdReqArr.length do
-              local macByteLen = 0
-              for key, _ in pairs(cmdReqArr[i]) do
-                local cid = parseInt(key, 16)
-                if (cid == consts.MACCMD_DOWNLINK_LIST) then
-                  macByteLen = macByteLen + consts.CID_LEN + consts.MACCMD_DOWNLINK_LIST[cid]
-                end
-              end
-
-              remainSize = remainSize - macByteLen
-              if remainSize >= 0 then
-                downlinkJson.FRMPayload.push(cmdReqArr[i])
-              else
-                if i < cmdReqArr.length - 1 then
-                  downlinkJson.FPending = 1
-                end
-
-                break
-              end
-            end
-          end
-
-          res = redisConnMsgQue.checkQueueLength(msgQueKey)
-
-          if (res and res > 0) then
-            downlinkJson.FPending = 1
-          end
-          return generateDownlink(txJson, downlinkJson)
-        elseif macCmdDownLen <= consts.FOPTS_MAXLEN then
-          downlinkJson.FOptsLen = macCmdDownLen
-          downlinkJson.FOpts = cmdAnsArr
-
-          cmdReqArr = redisConnMacCmdQue.read(macCmdQueReqKey)
-
-          if (cmdReqArr and cmdReqArr.length > 0) then
-            for i = 0, cmdReqArr.length do
-              local macByteLen = 0
-              for key, _ in pairs(cmdReqArr[i]) do
-                local cid = parseInt(key, 16)
-                if (cid == consts.MACCMD_DOWNLINK_LIST) then
-                  macByteLen = macByteLen + consts.CID_LEN + consts.MACCMD_DOWNLINK_LIST[cid]
-                end
-              end
-
-              if macByteLen + downlinkJson.FOptsLen <= consts.FOPTS_MAXLEN then
-                downlinkJson.FOptsLen = macByteLen + downlinkJson.FOptsLen
-                downlinkJson.FOpts.push(cmdReqArr[i])
-              else
-                if (i < cmdReqArr.length - 1) then
-                  downlinkJson.FPending = 1
-                end
-
-                break
-              end
-            end
-          end
-
-          res = redisConnMsgQue.consume(msgQueKey)
-
-          if (res and res.hasOwnProperty("pbdata")) then
-            downlinkJson.FRMPayload = Buffer.from(res.pbdata, "hex")
-          end
-
-          if (downlinkJson.FRMPayload.length > maxFRMPayloadAndFOptSize) then
-            p(
-              "App data Length exceeds the maximum length in FRMPayload",
-              {
-                DevAddr = DevAddr,
-                maxFRMPayloadAndFOptSize = maxFRMPayloadAndFOptSize,
-                appDataLength = downlinkJson.FRMPayload.length
-              }
-            )
-            return nil
-          end
-
-          return generateDownlink(txJson, downlinkJson)
-        end
-
-        -- Mac cmd answer queue has NO data
-        -- Read Mac cmd request queue
-        cmdReqArr = redisConnMacCmdQue.read(macCmdQueReqKey)
-
-        -- //Mac cmd request queue has data
-        if (cmdReqArr and cmdReqArr.length > 0) then
-          downlinkJson.ackbit = 1
-          local macCmdDownLen = getMacCmdDownByteLength(cmdReqArr)
-          if (macCmdDownLen > consts.FOPTS_MAXLEN) then
-            local macCmdDownLen = getMacCmdDownByteLength(cmdReqArr)
-
-            downlinkJson.isMacCmdInFRM = true
-            downlinkJson.FRMPayload = cmdReqArr.concat()
-
-            if (macCmdDownLen > maxFRMPayloadAndFOptSize) then
-              p(
-                "MAC commands request Length exceeds the maximum length  in FRMPayload && delete reqest queue",
-                {
-                  DevAddr = DevAddr,
-                  maxFRMPayloadAndFOptSize = maxFRMPayloadAndFOptSize,
-                  macReqLength = downlinkJson.FRMPayload.length
-                }
-              )
-            end
-
-            res = redisConnMsgQue.checkQueueLength(msgQueKey)
-            if (res and res > 0) then
-              downlinkJson.FPending = 1
-            end
-
-            return generateDownlink(txJson, downlinkJson)
-          elseif (macCmdDownLen <= consts.FOPTS_MAXLEN) then
-            downlinkJson.FOptsLen = macCmdDownLen
-            downlinkJson.FOpts = cmdReqArr.concat()
-          end
-        end
-
-        -- Mac cmd request queue has data || Mac cmd request queue length <= FOPTS_MAXLEN
-        res = redisConnMsgQue.consume(msgQueKey)
-
-        if (res == nil and downlinkJson.ackbit == nil) then
-          p("The message has no downlink object:")
+        if remainSize < 0 then
+          p(
+            "RemainSize less than 0",
+            {
+              DevAddr = DevAddr,
+              macCmdAns = cmdAnsArr,
+              macCmdDownLen = macCmdDownLen,
+              maxSize = maxFRMPayloadAndFOptSize
+            }
+          )
           return nil
         end
 
-        if (res and res.hasOwnProperty("pbdata")) then
-          downlinkJson.FRMPayload = Buffer.from(res.pbdata, "hex")
+        local cmdReqArrLen = DownlinkCmdQueue.checkQueueLength(macCmdQueReqKey)
+        local cmdReqArr = DownlinkCmdQueue.consumeAll(macCmdQueReqKey) -- req队列
+        if cmdReqArr and cmdReqArrLen > 0 then
+          for i = 1, cmdReqArrLen do
+            local macByteLen = 0
+            for key, _ in pairs(cmdReqArr[i]) do
+              local cid = key
+              if utiles.IsIndexInList(consts.MACCMD_DOWNLINK_LIST, cid) == true then
+                macByteLen = macByteLen + consts.CID_LEN + consts.MACCMD_DOWNLINK_LIST[cid]
+              end
+            end
+
+            remainSize = remainSize - macByteLen
+            if remainSize >= 0 then
+              downlinkJson.FRMPayload = cmdReqArr[i]
+            else
+              if i < cmdReqArrLen - 1 then
+                downlinkJson.FPending = 1
+              end
+              break
+            end
+          end
         end
 
-        if (downlinkJson.FRMPayload.length > maxFRMPayloadAndFOptSize) then
+        res = DownlinkCmdQueue.checkQueueLength(msgQueKey)
+
+        if res and res > 0 then
+          downlinkJson.FPending = 1
+        end
+        return generateDownlink(txJson, downlinkJson)
+      elseif macCmdDownLen <= consts.FOPTS_MAXLEN then
+        downlinkJson.FOptsLen = macCmdDownLen
+        downlinkJson.FOpts = cmdAnsArr -- 此处整理将cmd命令顺序排放至fopts中
+
+        local cmdReqArrLen = DownlinkCmdQueue.checkQueueLength(macCmdQueReqKey) -- 此处存在问题: 为什么检查req队列
+        local cmdReqArr = DownlinkCmdQueue.consume(macCmdQueReqKey) -- ??
+        if cmdReqArr and cmdReqArrLen > 0 then
+          for i = 0, cmdReqArrLen do
+            local macByteLen = 0
+            for key, _ in pairs(cmdReqArr[i]) do
+              local cid = key
+              if utiles.IsIndexInList(consts.MACCMD_DOWNLINK_LIST, cid) == true then
+                macByteLen = macByteLen + consts.CID_LEN + consts.MACCMD_DOWNLINK_LIST[cid]
+              end
+            end
+
+            if macByteLen + downlinkJson.FOptsLen <= consts.FOPTS_MAXLEN then
+              downlinkJson.FOptsLen = macByteLen + downlinkJson.FOptsLen
+              downlinkJson.FOpts = cmdReqArr[i]
+            else
+              if i < cmdReqArr.length - 1 then
+                downlinkJson.FPending = 1
+              end
+              break
+            end
+          end
+        end
+
+        res = DownlinkCmdQueue.consume(msgQueKey)
+        if res and res.pbdata ~= nil then
+          downlinkJson.FRMPayload = utiles.BufferFrom(res.pbdata)
+        end
+        if downlinkJson.FRMPayload.length > maxFRMPayloadAndFOptSize then
           p(
             "App data Length exceeds the maximum length in FRMPayload",
             {
@@ -258,16 +194,78 @@ function appDataDownlink(uplinkData, convertFn)
               appDataLength = downlinkJson.FRMPayload.length
             }
           )
+          return nil
         end
 
         return generateDownlink(txJson, downlinkJson)
       end
+
+      -- Mac cmd answer queue has NO data
+      -- Read Mac cmd request queue
+      local cmdReqArrLen = DownlinkCmdQueue.checkQueueLength(macCmdQueReqKey)
+      local cmdReqArr = DownlinkCmdQueue.consume(macCmdQueReqKey)
+      -- Mac cmd request queue has data
+      if (cmdReqArr and cmdReqArrLen > 0) then
+        downlinkJson.ackbit = 1
+        local macCmdDownLen = getMacCmdDownByteLength(cmdReqArr)
+        if (macCmdDownLen > consts.FOPTS_MAXLEN) then
+          local macCmdDownLen = getMacCmdDownByteLength(cmdReqArr)
+
+          downlinkJson.isMacCmdInFRM = true
+          downlinkJson.FRMPayload = cmdReqArr
+
+          if (macCmdDownLen > maxFRMPayloadAndFOptSize) then
+            p(
+              "MAC commands request Length exceeds the maximum length  in FRMPayload && delete reqest queue",
+              {
+                DevAddr = DevAddr,
+                maxFRMPayloadAndFOptSize = maxFRMPayloadAndFOptSize,
+                macReqLength = downlinkJson.FRMPayload.length
+              }
+            )
+          end
+
+          res = DownlinkCmdQueue.checkQueueLength(msgQueKey)
+          if (res and res > 0) then
+            downlinkJson.FPending = 1
+          end
+
+          return generateDownlink(txJson, downlinkJson)
+        elseif (macCmdDownLen <= consts.FOPTS_MAXLEN) then
+          downlinkJson.FOptsLen = macCmdDownLen
+          downlinkJson.FOpts = cmdReqArr
+        end
+      end
+
+      -- Mac cmd request queue has data || Mac cmd request queue length <= FOPTS_MAXLEN
+      res = DownlinkCmdQueue.consume(msgQueKey)
+      if res == nil and downlinkJson.ackbit == nil then
+        p("The message has no downlink object:")
+        return nil
+      end
+
+      if res and res.pbdata then
+        downlinkJson.FRMPayload = utiles.BufferFrom(res.pbdata)
+      end
+
+      if downlinkJson.FRMPayload.length > maxFRMPayloadAndFOptSize then
+        p(
+          "App data Length exceeds the maximum length in FRMPayload",
+          {
+            DevAddr = DevAddr,
+            maxFRMPayloadAndFOptSize = maxFRMPayloadAndFOptSize,
+            appDataLength = downlinkJson.FRMPayload.length
+          }
+        )
+      end
+
+      return generateDownlink(txJson, downlinkJson)
     end
   end
 
   local UpdateData = function(downlinkData) -- 更新数据库
     -- Persist Redis data to Mysql
-    local res = RedisDeviceInfo.read(DevAddr)
+    local res = RedisDeviceInfo.Read(DevAddr)
     if res == nil then
       p("Failed to persist Redis data to Mysql. No data in Redis", {DevAddr = DevAddr})
       return nil
@@ -290,17 +288,17 @@ function appDataDownlink(uplinkData, convertFn)
         modu = res.modu,
         codr = res.codr
       }
-      return MysqlDeviceInfo.updateItem({DevAddr = DevAddr}, persistDataToDeviceInfo)
+      return MysqlDeviceInfo.UpdateItem({DevAddr = DevAddr}, persistDataToDeviceInfo)
     else
       local persistDataToDeviceInfo = {
         FCntUp = res.FCntUp
       }
-      return MysqlDeviceInfo.updateItem({DevAddr = DevAddr}, persistDataToDeviceInfo)
+      return MysqlDeviceInfo.UpdateItem({DevAddr = DevAddr}, persistDataToDeviceInfo)
     end
   end
 
   -- main
-  uv.sleep(config.GetDownlinkDataDelay()) -- delay 500 ms from config
+  -- uv.sleep(config.GetDownlinkDataDelay()) -- delay 500 ms from config
   local downlinkData = downlinkDataHandler(resolve, reject)
   ret = UpdateData(downlinkData)
   return downlinkData
@@ -308,39 +306,36 @@ end
 
 function getMacCmdDownByteLength(macCmdArr)
   local macByteLen = 0
-  -- macCmdArr.forEach(element => {
-  --   local cid;
-  --   for (local key in element) {
-  --     cid = parseInt(key, 16);
-  --   }
-
-  --   if (cid in consts.MACCMD_DOWNLINK_LIST) then
-  --     macByteLen = macByteLen + consts.CID_LEN + consts.MACCMD_DOWNLINK_LIST[cid];
-  --   end
-  -- });
+  for _, element in pairs(macCmdArr) do
+    local cid
+    for key, _ in pairs(element) do
+      cid = key
+    end
+    if utiles.IsIndexInList(consts.MACCMD_DOWNLINK_LIST, cid) == true then
+      macByteLen = macByteLen + consts.CID_LEN + consts.MACCMD_DOWNLINK_LIST[tonumber(cid)]
+    end
+  end
   return macByteLen
 end
 
 function getMacCmdUpByteLength(macCmdArr)
   local macByteLen = 0
-  -- macCmdArr.forEach(element => {
-  --   local cid;
-  --   for (local key in element) {
-  --     cid = parseInt(key, 16);
-  --   }
-
-  --   if (cid in consts.MACCMD_UPLINK_LIST) {
-  --     macByteLen = macByteLen + consts.CID_LEN + consts.MACCMD_UPLINK_LIST[cid];
-  --   }
-  -- });
+  for _, element in pairs(macCmdArr) do
+    local cid
+    for key, _ in pairs(element) do
+      cid = key
+    end
+    if utiles.IsIndexInList(consts.MACCMD_UPLINK_LIST, cid) == true then
+      macByteLen = macByteLen + consts.CID_LEN + consts.MACCMD_UPLINK_LIST[cid]
+    end
+  end
   return macByteLen
 end
 
 function getMaxFRMPayloadAndFOptByteLength(frequencyPlan, datr, repeaterCompatible, protocolVersion)
-  -- let _this = this;
   local maxByteLen = 0
   -- TODO Add protocolVersion Check
-  if (repeaterCompatible == false) then
+  if repeaterCompatible == false then
     maxByteLen = consts.MAX_FRMPAYLOAD_SIZE_NOREPEATER[frequencyPlan][datr]
   else
     maxByteLen = consts.MAX_FRMPAYLOAD_SIZE_REPEATER[frequencyPlan][datr]

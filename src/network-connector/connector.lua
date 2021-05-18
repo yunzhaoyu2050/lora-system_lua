@@ -88,17 +88,17 @@ function DownlinkTask(message)
     local udpInfo = gatewayInfoRedis.Read(message.gatewayId) -- 取得网关信息
     if udpInfo then
       local cliUdpInfo = {}
-      if message.identifier == consts.UDP_ID_PULL_DATA then -- TODO:
-        cliUdpInfo.port = udpInfo.pullPort
-      else
-        cliUdpInfo.port = udpInfo.pushPort
-      end
-      -- if udpInfo.pullPort == nil then
-      --   -- PULL_RESP通过* pull_port *发送到网关。 因此，网关必须在可以接收任何PULL_RESP之前发送PULL_DATA。
-      --   p(" error: PULL_RESP is sent to the gateway through *pull_port*. Therefore, the gateway must send PULL_DATA before it can receive any PULL_RESP")
-      --   return -2
+      -- if message.identifier == consts.UDP_ID_PULL_DATA then -- TODO:
+      --   cliUdpInfo.port = udpInfo.pullPort
+      -- else
+      --   cliUdpInfo.port = udpInfo.pushPort
       -- end
-      -- cliUdpInfo.port = udpInfo.pullPort
+      if udpInfo.pullPort == nil then
+        -- PULL_RESP通过* pull_port *发送到网关。 因此，网关必须在可以接收任何PULL_RESP之前发送PULL_DATA。
+        p(" error: PULL_RESP is sent to the gateway through *pull_port*. Therefore, the gateway must send PULL_DATA before it can receive any PULL_RESP")
+        return -2
+      end
+      cliUdpInfo.port = udpInfo.pullPort
       cliUdpInfo.ip = udpInfo.address
       p(
         "udp send message to gateway, udp-ip:",

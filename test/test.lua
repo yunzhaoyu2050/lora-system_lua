@@ -3,11 +3,29 @@
 require("emmy_core").tcpListen("localhost", 9966)
 p("debug open, listen: " .. "localhost" .. ",port: " .. 9966)
 
+local serverCfgInfo = require("../server_cfg.lua")
+local ret = serverCfgInfo.Init() -- 初始化 配置文件
+if ret ~= 0 then
+  p("server config info init failed.")
+  return -1
+end
+
+local logger = require("../src/log.lua")
+ret = logger.init()
+if ret ~= 0 then
+  p("logger.init failed.", ret)
+  return -1
+end
 local consts = require("../src/lora-lib/constants/constants.lua")
+ret = consts.Init() --初始化 固化参数
+if ret ~= 0 then
+  p("consts param init failed.")
+  return -1
+end
 local devinfo = require("../src/lora-lib/models/RedisModels/DeviceInfo.lua")
 local udp = require("../src/network-connector/udp.lua")
 local udpLayer = require("../src/network-connector/udpHandler.lua")
-local serverCfgInfo = require("../server_cfg.lua")
+
 local Module = require("../src/network-connector/connector.lua")
 local model = require("../src/lora-lib/models/models.lua")
 -- local mqHandle = require('../src/common/message_queue.lua')
@@ -15,11 +33,7 @@ local serverModule = require("../src/network-server/server.lua")
 local uv = require("luv")
 -- local thread = require('thread')
 uv.sleep(5000)
-local ret = serverCfgInfo.Init() -- 初始化 配置文件
-if ret ~= 0 then
-  p("server config info init failed.")
-  return -1
-end
+
 ret = consts.Init() --初始化 固化参数
 if ret ~= 0 then
   p("consts param init failed.")
@@ -35,7 +49,7 @@ ret = udp.Init() -- 初始化 udp服务
 -- local connectorThread = thread.start(function()
 -- local connectorModule = require('../network-connector/connector.lua')
 -- ret = connectorModule.Task() -- connector模块 上行任务
-p("start...")
+logger.info("start...")
 ret = Module.Start()
 -- end):join()
 -- ret = connectorModule.Init() -- 初始化 connector模块

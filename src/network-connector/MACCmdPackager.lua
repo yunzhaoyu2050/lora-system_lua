@@ -1,30 +1,32 @@
 local utiles = require("../../utiles/utiles.lua")
+local buffer = require("buffer").Buffer
+local consts = require("../lora-lib/constants/constants.lua")
 
 -- mac命令打包
 function packager(macCmdArray)
-  local macCommand = Buffer:new(0)
-  -- macCmdArray.forEach((macCmdJSON) => {
+  local macCommand = buffer:new(0)
   for _, macCmdJSON in pairs(macCmdArray) do
     for key, _ in pairs(macCmdJSON) do
-      local cid = Buffer.from(key, "hex")
+      local cid = buffer:new(consts.CID_LEN)
+      cid[1] = tonumber(key)
       local payloadJSON = macCmdJSON[key]
 
-      utiles.switch(cid.readInt8()) {
+      utiles.switch(cid:readInt8(1)) {
         [consts.RESET_CID] = function()
           macCommand =
-            Buffer.concat(
+            utiles.BufferConcat(
             {
-              macCommand,
               cid,
               payloadJSON.Version
             }
           )
         end,
         [consts.LINKCHECK_CID] = function()
+          p("Margin:", utiles.printBuf(payloadJSON.Margin))
+          p("GwCnt:", utiles.printBuf(payloadJSON.GwCnt))
           macCommand =
-            Buffer.concat(
+            utiles.BufferConcat(
             {
-              macCommand,
               cid,
               payloadJSON.Margin,
               payloadJSON.GwCnt
@@ -33,9 +35,8 @@ function packager(macCmdArray)
         end,
         [consts.LINKADR_CID] = function()
           macCommand =
-            Buffer.concat(
+            utiles.BufferConcat(
             {
-              macCommand,
               cid,
               payloadJSON.TXPower,
               payloadJSON.ChMask,
@@ -45,9 +46,8 @@ function packager(macCmdArray)
         end,
         [consts.DUTYCYCLE_CID] = function()
           macCommand =
-            Buffer.concat(
+            utiles.BufferConcat(
             {
-              macCommand,
               cid,
               payloadJSON.DutyCyclePL
             }
@@ -55,9 +55,8 @@ function packager(macCmdArray)
         end,
         [consts.RXPARAMSETUP_CID] = function()
           macCommand =
-            Buffer.concat(
+            utiles.BufferConcat(
             {
-              macCommand,
               cid,
               payloadJSON.DLSettings,
               payloadJSON.Frequency
@@ -66,18 +65,16 @@ function packager(macCmdArray)
         end,
         [consts.DEVSTATUS_CID] = function()
           macCommand =
-            Buffer.concat(
+            utiles.BufferConcat(
             {
-              macCommand,
               cid
             }
           )
         end,
         [consts.NEWCHANNEL_CID] = function()
           macCommand =
-            Buffer.concat(
+            utiles.BufferConcat(
             {
-              macCommand,
               cid,
               payloadJSON.ChIndex,
               payloadJSON.Freq,
@@ -87,9 +84,8 @@ function packager(macCmdArray)
         end,
         [consts.RXTIMINGSETUP_CID] = function()
           macCommand =
-            Buffer.concat(
+            utiles.BufferConcat(
             {
-              macCommand,
               cid,
               payloadJSON.Settings
             }
@@ -97,9 +93,8 @@ function packager(macCmdArray)
         end,
         [consts.TXPARAMSETUP_CID] = function()
           macCommand =
-            Buffer.concat(
+            utiles.BufferConcat(
             {
-              macCommand,
               cid,
               payloadJSON.DwellTime
             }
@@ -107,9 +102,8 @@ function packager(macCmdArray)
         end,
         [consts.DLCHANNEL_CID] = function()
           macCommand =
-            Buffer.concat(
+            utiles.BufferConcat(
             {
-              macCommand,
               cid,
               payloadJSON.ChIndex,
               payloadJSON.Freq
@@ -118,9 +112,8 @@ function packager(macCmdArray)
         end,
         [consts.REKEY_CID] = function()
           macCommand =
-            Buffer.concat(
+            utiles.BufferConcat(
             {
-              macCommand,
               cid,
               payloadJSON.Version
             }
@@ -128,9 +121,8 @@ function packager(macCmdArray)
         end,
         [consts.ADRPARAMSETUP_CID] = function()
           macCommand =
-            Buffer.concat(
+            utiles.BufferConcat(
             {
-              macCommand,
               cid,
               payloadJSON.ADRParam
             }
@@ -138,9 +130,8 @@ function packager(macCmdArray)
         end,
         [consts.DEVICETIME_CID] = function()
           macCommand =
-            Buffer.concat(
+            utiles.BufferConcat(
             {
-              macCommand,
               cid,
               payloadJSON.Seconds,
               payloadJSON.FractionalSec
@@ -149,9 +140,8 @@ function packager(macCmdArray)
         end,
         [consts.FORCEREJOIN_CID] = function()
           macCommand =
-            Buffer.concat(
+            utiles.BufferConcat(
             {
-              macCommand,
               cid,
               payloadJSON.ForceRejoinReq
             }
@@ -159,20 +149,21 @@ function packager(macCmdArray)
         end,
         [consts.REJOINPARAMSETUP_CID] = function()
           macCommand =
-            Buffer.concat(
+            utiles.BufferConcat(
             {
-              macCommand,
               cid,
               payloadJSON.RejoinParamSetupReq
             }
           )
         end,
-        [default] = function()
+        [utiles.Default] = function()
           p("Bad cid of MACCommand", cid)
         end
       }
     end
   end
+  p("macCommand:")
+  utiles.printBuf(macCommand)
   return macCommand
 end
 

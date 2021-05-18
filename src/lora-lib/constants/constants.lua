@@ -144,7 +144,7 @@ function consts.Init()
   consts.DEFAULTCHDRRANGE = "5050505050505050"
   consts.DEFAULTCONF = {
     ["EU433"] = {
-      frequencyPlan = 433,
+      frequencyPlan = "EU433",
       ChMask = "00FF",
       CFList = consts.CFLISTJSON[433],
       ChDrRange = consts.DEFAULTCHDRRANGE,
@@ -155,7 +155,7 @@ function consts.Init()
     },
     ["CN470-510"] = {
       -- TODO: 核定
-      frequencyPlan = 470,
+      frequencyPlan = "CN470-510",
       ChMask = "00FF",
       CFList = "",
       ChDrRange = consts.DEFAULTCHDRRANGE,
@@ -165,7 +165,7 @@ function consts.Init()
       MaxEIRP = 27
     },
     ["CN779-787"] = {
-      frequencyPlan = 787,
+      frequencyPlan = "CN779-787",
       ChMask = "00FF",
       CFList = consts.CFLISTJSON[787],
       ChDrRange = consts.DEFAULTCHDRRANGE,
@@ -175,7 +175,7 @@ function consts.Init()
       MaxEIRP = 12.15
     },
     ["AS923AU915-928"] = {
-      frequencyPlan = 915,
+      frequencyPlan = "AS923AU915-928",
       ChMask = "FF00000000000000FF",
       CFList = consts.CFLISTJSON[915],
       ChDrRange = consts.DEFAULTCHDRRANGE,
@@ -208,7 +208,7 @@ function consts.Init()
   -- Default RxDelay for RX1 is 1000 ms
   consts.DEFAULT_RX1DELAY = 1000
 
-  -- consts.DOWNLINK_MQ_PREFIX = "lora:as:appdata:"
+  consts.DOWNLINK_MQ_PREFIX = "lora:as:appdata:"
   consts.DOWNLINK_DELAY = 300
   consts.DEDUPLICATION_DURATION = 200
   -- consts.COLLECTKEYTEMP_PREFIX = "lora:ns:rx:collect:"
@@ -855,7 +855,7 @@ function consts.Init()
   }
 
   consts.MAX_FRMPAYLOAD_SIZE_REPEATER = {
-    [433] = {
+    ["EU433"] = {
       SF12BW125 = 51,
       SF11BW125 = 51,
       SF10BW125 = 51,
@@ -864,7 +864,7 @@ function consts.Init()
       SF7BW125 = 222,
       SF7BW250 = 222
     },
-    [915] = {
+    ["AS923AU915-928"] = {
       SF12BW125 = 51,
       SF11BW125 = 51,
       SF10BW125 = 51,
@@ -878,10 +878,18 @@ function consts.Init()
       SF9BW500 = 222,
       -- SF8BW500 = 222,
       SF7BW500 = 222
+    },
+    ["CN470-510"] = {
+      SF12BW125 = 222,
+      SF11BW125 = 222,
+      SF10BW125 = 222,
+      SF9BW125 = 222,
+      SF8BW125 = 222,
+      SF7BW125 = 222
     }
   }
   consts.MAX_FRMPAYLOAD_SIZE_NOREPEATER = {
-    [433] = {
+    ["EU433"] = {
       SF12BW125 = 51,
       SF11BW125 = 51,
       SF10BW125 = 51,
@@ -890,7 +898,7 @@ function consts.Init()
       SF7BW125 = 242,
       SF7BW250 = 242
     },
-    [915] = {
+    ["AS923AU915-928"] = {
       SF12BW125 = 51,
       SF11BW125 = 51,
       SF10BW125 = 51,
@@ -904,6 +912,14 @@ function consts.Init()
       SF9BW500 = 242,
       -- SF8BW500 = 242,
       SF7BW500 = 242
+    },
+    ["CN470-510"] = {
+      SF12BW125 = 242,
+      SF11BW125 = 242,
+      SF10BW125 = 242,
+      SF9BW125 = 242,
+      SF8BW125 = 242,
+      SF7BW125 = 242
     }
   }
   consts.TXPOWER_MAX_LIST = {
