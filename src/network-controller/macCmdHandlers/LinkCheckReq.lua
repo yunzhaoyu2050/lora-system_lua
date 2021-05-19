@@ -1,10 +1,11 @@
 local utils = require("../../../utiles/utiles.lua")
--- const BluebirdPromise = require('bluebird');
 local constants = require("../../lora-lib/constants/constants.lua")
-local buffer = require("buffer").Buffer
+-- local buffer = require("buffer").Buffer
 local DownlinkCmdQueue = require("../../lora-lib/models/RedisModels/DownlinkCmdQueue.lua")
+local logger = require("../../log.lua")
+
 return function(devAddr, devtx, gwrx)
-  p(
+  logger.info(
     {
       label = "MAC Command Req",
       message = {
@@ -27,7 +28,7 @@ return function(devAddr, devtx, gwrx)
   end
 
   if requireSNR == nil then
-    p("sf ${devtx.datr} not in sf to required snr table")
+    logger.error("sf ${devtx.datr} not in sf to required snr table")
     return nil
   end
 
@@ -44,9 +45,9 @@ return function(devAddr, devtx, gwrx)
   }
 
   -- push cmd ans into queue
-  local mqKey = constants.MACCMDQUEANS_PREFIX .. devAddr;
+  local mqKey = constants.MACCMDQUEANS_PREFIX .. devAddr
   DownlinkCmdQueue.produce(mqKey, outputObj)
-  p(
+  logger.info(
     {
       label = "MAC Command Ans",
       message = {

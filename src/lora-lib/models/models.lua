@@ -7,6 +7,7 @@ local MySQLModelsDeviceInfo = require("./MySQLModels/DeviceInfo.lua")
 local MySQLModelsDeviceConfig = require("./MySQLModels/DeviceConfig.lua")
 local MySQLModelsGatewayInfo = require("./MySQLModels/GatewayInfo.lua")
 local MySQLDeviceRouting = require("./MySQLModels/DeviceRouting.lua")
+local logger = require("../../log.lua")
 
 local Models = {}
 
@@ -16,23 +17,22 @@ function Models.Init()
   -- 初始化MySQL模型
   ret = MySQLModelsAppInfo.Init()
   if ret ~= 0 then
-    p("MySQLModelsAppInfo init failed")
+    logger.error("MySQLModelsAppInfo init failed")
     return -1
   end
-  p("MySQLModelsAppInfo init success")
   ret = MySQLModelsDeviceInfo.Init()
   if ret ~= 0 then
-    p("MySQLModelsDeviceInfo init failed")
+    logger.error("MySQLModelsDeviceInfo init failed")
     return -2
   end
   ret = MySQLModelsDeviceConfig.Init()
   if ret ~= 0 then
-    p("MySQLModelsDeviceConfig init failed")
+    logger.error("MySQLModelsDeviceConfig init failed")
     return -3
   end
   ret = MySQLModelsGatewayInfo.Init()
   if ret ~= 0 then
-    p("MySQLModelsGatewayInfo init failed")
+    logger.error("MySQLModelsGatewayInfo init failed")
     return -4
   end
   ret = MySQLDeviceRouting.Init()

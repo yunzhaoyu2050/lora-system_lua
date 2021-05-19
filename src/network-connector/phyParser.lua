@@ -10,6 +10,7 @@ local joinHandler = require("./joinHandler.lua")
 local buffer = require("buffer").Buffer
 local bit = require("bit")
 local utiles = require("../../utiles/utiles.lua")
+local logger = require("../log.lua")
 
 -- @info phyLayer层解析
 -- Instance methods
@@ -44,38 +45,38 @@ end
 -- 解析FHDR
 local function fhdrParser(macPayload)
   if macPayload == nil then
-    p("macPayload is nil")
+    logger.error("macPayload is nil")
     return nil
   end
   -- slice(macPayload, consts.MP_DEVADDR_OFFSET, consts.MP_DEVADDR_END);
   local DevAddr = utiles.BufferSlice(macPayload, consts.MP_DEVADDR_OFFSET + 1, consts.MP_DEVADDR_END)
   DevAddr = utiles.BEToLE(DevAddr)
-  p("   DevAddr:", utiles.BufferToHexString(DevAddr))
+  logger.info({"   DevAddr:", utiles.BufferToHexString(DevAddr)})
   local FCtrl = macPayload:readUInt8(consts.MP_FCTRL_OFFSET + 1)
   local FCtrlJSON = fctrlParser(FCtrl)
   local FCnt = utiles.BufferSlice(macPayload, consts.MP_FCNT_OFFSET + 1, consts.MP_FCNT_END)
   FCnt = utiles.BEToLE(FCnt)
-  p("   FCnt:", utiles.BufferToHexString(FCnt))
+  logger.info({"   FCnt:", utiles.BufferToHexString(FCnt)})
 
   local FOpts = {}
   if FCtrlJSON.FOptsLen > 0 then
     local fhdrEnd = consts.MP_FOPTS_OFFSET + 1 + FCtrlJSON.FOptsLen
     local FOptsBuf = utiles.BufferSlice(macPayload, consts.MP_FOPTS_OFFSET + 1, fhdrEnd)
     FOptsBuf = utiles.BEToLE(FOptsBuf)
-    p("   FOptsBuf:", utiles.BufferToHexString(FOptsBuf))
+    logger.info({"   FOptsBuf:", utiles.BufferToHexString(FOptsBuf)})
     -- mac cmd解析 FOpts中携带mac命令序列的情况下
     local FOptsJson = macCmdParser.parser(FOptsBuf)
     if FOptsJson == nil then
-      p("macCmdParser.parser failed")
+      logger.error("macCmdParser.parser failed")
       return nil
     end
     if FOptsJson.ansLen > consts.FOPTS_MAXLEN then
-      p("Invalid length of Request MACCommand in FOpts")
+      logger.error("Invalid length of Request MACCommand in FOpts")
       return nil
     end
     FOpts = FOptsJson.cmdArr
   else
-    p("   FCtrlJSON.FOptsLen = 0")
+    logger.info("   FCtrlJSON.FOptsLen = 0")
     FOpts = {}
   end
 
@@ -91,14 +92,14 @@ end
 -- @param macPayload buffer类型数据
 function macPayloadParser(macPayload)
   if macPayload == nil then
-    p("macPayload is nil")
+    logger.error("macPayload is nil")
     return nil
   end
-  p("   macPayload:", utiles.BufferToHexString(macPayload))
+  logger.info({"   macPayload:", utiles.BufferToHexString(macPayload)})
   local macPayloadLen = macPayload.length
   local fhdrJSON = fhdrParser(macPayload) -- fhdr字段解析
   if fhdrJSON == nil then
-    p("fhdr Parser failed")
+    logger.error("fhdr Parser failed")
     return nil
   end
   local fhdrEnd = 0
@@ -108,7 +109,7 @@ function macPayloadParser(macPayload)
     fhdrEnd = consts.MP_FOPTS_OFFSET
   end
   local fhdr = utiles.BufferSlice(macPayload, consts.MP_FHDR_OFFSET + 1, fhdrEnd)
-  p("   fhdr:", utiles.BufferToHexString(fhdr))
+  logger.info({"   fhdr:", utiles.BufferToHexString(fhdr)})
   local macPayloadJSON = {
     fhdr = fhdr, -- 原始数据
     fhdrJSON = fhdrJSON -- 解析后的数据
@@ -117,16 +118,16 @@ function macPayloadParser(macPayload)
   if fhdrEnd == macPayloadLen then -- 不是macplay的消息
     -- 此处有可能是其他的消息
     -- No FPort and FRMPayload
-    p(" No FPort and FRMPayload")
+    logger.warn(" No FPort and FRMPayload")
     return macPayloadJSON
   else
     if fhdrEnd > macPayloadLen then -- 出错
-      p("Insufficient length of FOpts, the package is ignored")
+      logger.error("Insufficient length of FOpts, the package is ignored")
       return nil
     else
       local FRMPayloadOffset = fhdrEnd + consts.FPORT_LEN
       local FPort = utiles.BufferSlice(macPayload, fhdrEnd + 1, FRMPayloadOffset)
-      p("   FPort:",  utiles.BufferToHexString(FPort))
+      logger.info({"   FPort:",  utiles.BufferToHexString(FPort)})
       local FRMPayload = nil
       if FRMPayloadOffset == macPayload.length then
         FRMPayload = buffer:new(0)
@@ -134,9 +135,9 @@ function macPayloadParser(macPayload)
         FRMPayload = utiles.BufferSlice(macPayload, FRMPayloadOffset, macPayload.length)
       end
       FRMPayload = utiles.BufferSlice(macPayload, FRMPayloadOffset + 1, macPayload.length)
-      p("   FRMPayload:", utiles.BufferToHexString(FRMPayload))
+      logger.info({"   FRMPayload:", utiles.BufferToHexString(FRMPayload)})
       if FRMPayload.length <= 0 then -- 出错
-        p("FRMPayload must not be empty if FPort is given")
+        logger.error("FRMPayload must not be empty if FPort is given")
         return nil
       end
       -- 解析成功
@@ -164,7 +165,7 @@ end
 -- Join Request
 -- @param phyPayload buffer类型数据
 local function phyPayloadParser(phyPayload)
-  p("   phyPayload:", utiles.BufferToHexString(phyPayload))
+  logger.info({"   phyPayload:", utiles.BufferToHexString(phyPayload)})
   local phyLen = phyPayload.length
   local mhdr = utiles.BufferSlice(phyPayload, consts.MHDR_OFFSET + 1, consts.MHDR_LEN)
   -- MAC layer MAC头(MHDR字段)
@@ -185,7 +186,7 @@ end
 -- 从缓存中读取DeviceInfo
 local function getAndCacheDeviceInfo(DevAddr, queryAttributes)
   if DevAddr == nil or queryAttributes == nil then
-    p("DevAddr is nil or queryAttributes is nil")
+    logger.error("DevAddr is nil or queryAttributes is nil")
     return nil
   end
   local res = DeviceInfoRedis.readItem({DevAddr = DevAddr}, queryAttributes) -- 从redis中读取
@@ -194,11 +195,11 @@ local function getAndCacheDeviceInfo(DevAddr, queryAttributes)
       local devInfo = {}
       res = DeviceInfoMysql.readItem({DevAddr = DevAddr}, consts.DEVICEINFO_CACHE_ATTRIBUTES) -- 从mysql中读取
       if res.AppKey == nil or res.AppEUI == nil then -- 没有AppEUI或者没有AppKey 则出错
-        p("The Device was not registered in LoRa web")
+        logger.error("The Device was not registered in LoRa web")
         return nil
       end
       if res.NwkSKey == nil or res.AppSKey == nil then -- 没有NwkSKey或者没有AppSKey 则出错
-        p("The OTAA Device was not registered through the join process")
+        logger.error("The OTAA Device was not registered through the join process")
         return nil
       end
       -- DeviceRoutingMysql
@@ -225,7 +226,7 @@ local function getAndCacheDeviceInfo(DevAddr, queryAttributes)
       return res
     end
   else
-    p("DeviceInfoRedis readItem failed")
+    logger.error("DeviceInfoRedis readItem failed")
     return res
   end
 end
@@ -233,11 +234,11 @@ end
 -- MIC值验证
 local function macPayloadMICVerify(requiredFields, values, direction, phyPayloadJSON)
   if values == nil or requiredFields == nil or direction == nil or phyPayloadJSON == nil then
-    p("inputs is nil")
+    logger.error("inputs is nil")
     return nil
   end
   if values.NwkSKey == nil then
-    p("The device was not registered in LoRa web")
+    logger.error("The device was not registered in LoRa web")
     return nil
   end
 
@@ -247,14 +248,14 @@ local function macPayloadMICVerify(requiredFields, values, direction, phyPayload
   local NwkSKey = values.NwkSKey
   local micCal = phyUtils.micCalculator(requiredFields, NwkSKey, direction) -- mic计算
   micCal = utiles.BufferToHexString(micCal)
-  p("   recv mic:", recvMic)
-  p("   calc mic:", micCal)
+  logger.info({"   recv mic:", recvMic})
+  logger.info({"   calc mic:", micCal})
   if micCal == recvMic then
     -- MIC verification passing
-    p(" MIC verification passing")
+    logger.info(" MIC verification passing")
     return values
   else
-    p("MACPayload MIC mismatch")
+    logger.error("MACPayload MIC mismatch")
     return nil
   end
 end
@@ -290,16 +291,16 @@ function decryptFRMPayload(values, phyPayloadJSON, macPayloadJSON, requiredField
     if (macPayloadJSON.FPort:readUInt8(1) == consts.MACCOMMANDPORT:readUInt8(1)) then
       -- FPort值为0表示FRMPayload为MAC指令，非0则标志FRMPayload为业务数据。
       -- 当FOptsLen为非0值时，FPort也只能为非0值，不允许同时在FOpts和FRMPayload都有MAC指令
-      p("   is mac data.")
+      logger.info("   is mac data.")
       if macPayloadJSON.fhdrJSON.FCtrl.FOptsLen > 0 then
-        p("MAC Commands are present in the FOpts field, the FPort 0 cannot be used")
+        logger.error("MAC Commands are present in the FOpts field, the FPort 0 cannot be used")
         return -2
       else
         -- MAC指令
         result.MACPayload.FRMPayload = macCmdParser.parser(framePayload).cmdArr
       end
     else
-      p("   is app data.")
+      logger.info("   is app data.")
     end
     -- 业务数据
     return result
@@ -310,14 +311,14 @@ end
 -- @param phyPayloadRaw json解析过的data数据
 -- @return 失败: nil
 function parser(phyPayloadRaw)
-  p("PHYPayload data parser...")
+  logger.info("PHYPayload data parser...")
   if phyPayloadRaw == nil then
-    p("phyPayloadRaw is nil")
+    logger.error("phyPayloadRaw is nil")
     return nil
   end
   local tmp = basexx.from_base64(phyPayloadRaw) -- base64 to string
   local phyPayload = buffer:new(tmp)
-  p("   phyPayload base64:", phyPayload:toString())
+  logger.info({"   phyPayload base64:", phyPayload:toString()})
   local phyPayloadJSON = phyPayloadParser(phyPayload)
 
   -- 判断Data message type
@@ -335,7 +336,7 @@ function parser(phyPayloadRaw)
       consts.NS_MSG_TYPE_LIST[phyPayloadJSON.mhdrJSON.MType + 1] ~= consts.JOIN_REQ
    then -- 非Join Request消息
     if phyPayload.length < consts.MIN_PHYPAYLOAD_LEN then
-      p("Insufficient length of PHYPayload, greater than ${consts.MIN_PHYPAYLOAD_LEN} bytes is mandatory")
+      logger.error("Insufficient length of PHYPayload, greater than ${consts.MIN_PHYPAYLOAD_LEN} bytes is mandatory")
       return nil
     end
     local direction = buffer:new(consts.DIRECTION_LEN)
@@ -346,7 +347,7 @@ function parser(phyPayloadRaw)
       return nil
     end
     -- macPayloadJSON.fhdrJSON.DevAddr[1] = 0
-    utiles.printBuf(macPayloadJSON.fhdrJSON.DevAddr)
+    -- utiles.printBuf(macPayloadJSON.fhdrJSON.DevAddr)
     -- MIC verification mic计算需要使用的参数
     local requiredFields = {
       MHDR = phyPayloadJSON.mhdr,
@@ -373,12 +374,12 @@ function parser(phyPayloadRaw)
     return decryptFRMPayload(res, phyPayloadJSON, macPayloadJSON, requiredFields, direction)
   elseif consts.JS_MSG_TYPE_LIST[phyPayloadJSON.mhdrJSON.MType + 1] == consts.JOIN_REQ then -- Join Request消息
     if phyPayloadJSON.macPayload.length ~= consts.JOINREQ_BASIC_LENGTH then -- 出错
-      p("Invalid length of JOIN request, ${consts.JOINREQ_BASIC_LENGTH} bytes is mandatory")
+      logger.error("Invalid length of JOIN request, ${consts.JOINREQ_BASIC_LENGTH} bytes is mandatory")
       return nil
     end
     return joinHandler.parser(phyPayloadJSON) -- Join Request消息解析
   else -- 出错
-    p("nvalid message type, one of [0, 2, 4] is mandatory")
+    logger.error("nvalid message type, one of [0, 2, 4] is mandatory")
     return -4
   end
 end

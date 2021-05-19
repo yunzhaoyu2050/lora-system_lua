@@ -7,6 +7,7 @@ local consts = require("../lora-lib/constants/constants.lua")
 local buffer = require("buffer").Buffer
 local _deviceInfoMysql = require("../lora-lib/models/MySQLModels/DeviceInfo.lua")
 local joinHandler = require("./joinHandler.lua")
+local logger = require("../log.lua")
 
 function MHDRPackager(MHDRJSON)
   local MHDR = buffer:new(consts.MHDR_LEN)
@@ -25,7 +26,11 @@ function FHDRPackager(FHDRJSON)
   utiles.BufferCopy(FHDR, consts.MP_FCTRL_OFFSET + 1, FCtrl)
 
   -- utiles.slice(FHDRJSON.FCnt, consts.FCNT_LEAST_OFFSET).copy(FHDR, consts.MP_FCNT_OFFSET)
-  utiles.BufferCopy(FHDR, consts.MP_FCNT_OFFSET + 1, FHDRJSON.FCnt)
+  local FCnt  = utiles.reverse(FHDRJSON.FCnt)
+  utiles.BufferCopy(FHDR, consts.MP_FCNT_OFFSET + 1, FCnt)
+
+  logger.info({"FCntL:", utiles.BufferToHexString(FCnt)})
+  -- utiles.printBuf(FHDR)
 
   if FHDRJSON.FCtrl.FOptsLen > 0 then
     local FOpts = MACPackager.packager(FHDRJSON.FOpts)
@@ -52,7 +57,7 @@ end
 
 -- phy层细打包
 function packager(phyPayloadJSON)
-  p("   phypayload packager...")
+  logger.info("   phypayload packager...")
   local MType = phyPayloadJSON.MHDR.MType
   local MACPayload = phyPayloadJSON.MACPayload
   local MHDR
@@ -80,7 +85,7 @@ function packager(phyPayloadJSON)
     local devaddr = MACPayload.DevAddr
     local key = _deviceInfoMysql.readItem({DevAddr = devaddr}, {"AppKey"})
     if key ~= nil then
-      p("   join accept message packager...")
+      logger.info("   join accept message packager...")
       return joinHandler.packager(phyPayloadJSON, key.AppKey)
     end
   end
@@ -95,31 +100,20 @@ function packager(phyPayloadJSON)
     return ret
   end
 
-  -- local MHDR_FHDR_FPORT =
-  --   utiles.BufferConcat(
-  --   {
-  --     MHDR,
-  --     FHDR,
-  --     MACPayload.FPort
-  --   }
-  -- )
-  -- p("MHDR_FHDR_FPORT:")utiles.printBuf(MHDR_FHDR_FPORT)
-  -- if MACPayload.FHDR.FCtrl.FOptsLen > 0 then
-  --   p("mac cmd in fopts.")
-  --   return MHDR_FHDR_FPORT
-  -- end
-
   -- frmpayload Encryption 加密
   local direction = buffer:new(consts.DIRECTION_LEN)
   direction:writeUInt8(1, consts.BLOCK_DIR_CLASS.Down)
   local DevAddr = MACPayload.FHDR.DevAddr
+
   local query = {
     DevAddr = utiles.BufferToHexString(DevAddr)
   }
+
   local attrs = {
     "AppSKey",
     "NwkSKey"
   }
+
   -- query AppSKey
   -- return this.DeviceInfo.readItem(query, attrs)
   local keys = _deviceInfoMysql.readItem(query, attrs)
@@ -141,6 +135,7 @@ function packager(phyPayloadJSON)
     else
       MACPayload.FRMPayload = phyUtils.decrypt(encryptionFields, key, direction) --下行加密
     end
+
     local PHYPayload =
       utiles.BufferConcat(
       {
@@ -159,7 +154,9 @@ function packager(phyPayloadJSON)
       FCnt = MACPayload.FHDR.FCnt
     }
     local MIC = phyUtils.micCalculator(micFields, keys.NwkSKey, direction) -- mic计算
+    logger.info({"   calc mic val:", utiles.BufferToHexString(MIC)})
     PHYPayload = utiles.BufferConcat({PHYPayload, MIC})
+    logger.info({" PHYPayload:", utiles.BufferToHexString(PHYPayload)})
     return PHYPayload
   end
 end

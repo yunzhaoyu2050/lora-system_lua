@@ -4,6 +4,7 @@ local json = require("json")
 local fs = require("fs")
 local timer = require("timer")
 local utiles = require("../../../../utiles/utiles.lua")
+local logger = require("../../../log.lua")
 
 local DeviceRouting = {
   timer = timer,
@@ -24,7 +25,7 @@ local DeviceRouting = {
 
 function DeviceRouting.Write(devAddr, info)
   if devAddr == nil then
-    p("devAddr is nil")
+    logger.error("devAddr is nil")
     return -1
   end
   if DeviceRouting.hashTable[devAddr] == nil then
@@ -41,16 +42,16 @@ function DeviceRouting.Write(devAddr, info)
       codr = info.codr,
       ipol = info.ipol
     }
-    p("inster a new DeviceRouting, devAddr:" .. devAddr)
+    logger.info("inster a new DeviceRouting, devAddr:%s", devAddr)
     return 0
   end
-  p("devAddr already exists, devAddr:" .. devAddr)
+  logger.warn("devAddr already exists, devAddr:%s", devAddr)
   return -2
 end
 
 function DeviceRouting.Read(devAddr)
   if devAddr == nil then
-    p("devAddr is nil")
+    logger.error("devAddr is nil")
     return -1
   end
   return DeviceRouting.hashTable[devAddr]
@@ -92,7 +93,7 @@ end
 
 function DeviceRouting.readItem(devaddr, item)
   if devaddr == nil then
-    p("devaddr is nil")
+    logger.error("devaddr is nil")
     return -1
   end
   if item == nil then
@@ -156,7 +157,7 @@ end
 
 function DeviceRouting.Update(devAddr, info)
   if devAddr == nil then
-    p("devAddr is nil")
+    logger.error("devAddr is nil")
     return -1
   end
   if DeviceRouting.hashTable[devAddr] ~= nil then
@@ -173,10 +174,10 @@ function DeviceRouting.Update(devAddr, info)
       codr = info.codr,
       ipol = info.ipol
     }
-    p("update DeviceRouting, devAddr:" .. devAddr)
+    logger.info("update DeviceRouting, devAddr:%s", devAddr)
     return 0
   end
-  p("error :update DeviceRouting is nil, devAddr:" .. devAddr)
+  logger.warn("error :update DeviceRouting is nil, devAddr:%s", devAddr)
   return -2
 end
 
@@ -186,7 +187,7 @@ end
 -- @return 0:成功 <0:失败
 function DeviceRouting.UpdateItem(appoint, item)
   if appoint == nil or item == nil then
-    p("index or item is nil")
+    logger.error("index or item is nil")
     return -1
   end
   local inK, inV = GetInputVal(appoint)
@@ -228,10 +229,10 @@ function DeviceRouting.UpdateItem(appoint, item)
             DeviceRouting.hashTable[k].ipol = v
           end,
           [utiles.Nil] = function()
-            p("i is nil")
+            logger.error("i is nil")
           end,
           [utiles.Default] = function()
-            p("item is other, please check it.", i)
+            logger.warn({"item is other, please check it.", i})
           end
         }
       end
@@ -247,7 +248,7 @@ end
 -- 定时任务 将DeviceRouting.hashTable中的数据写入到DeviceRouting.data文件中
 local function SynchronousData()
   if DeviceRouting.hashTable == nil then
-    p("DeviceRouting.hashTable is nil")
+    logger.error("DeviceRouting.hashTable is nil")
     return -1
   end
   local tmp = json.stringify(DeviceRouting.hashTable)
@@ -266,26 +267,27 @@ function DeviceRouting.Init()
     -- 没有文件则创建一个空文件
     fd, err = fs.openSync(deviceRoutingPath, "w+")
     if err ~= nil then
-      p(err, fd)
+      logger.error("err:", err, fd)
       return -1
     end
-    p("create a new empty DeviceRouting.data")
+    logger.info("create a new empty DeviceRouting.data")
   end
   local stat = fs.statSync(deviceRoutingPath)
   local chunk, err = fs.readSync(fd, stat.size, 0)
   if err ~= nil or chunk == nil then
-    p(err, chunk)
+    logger.error("err:", err, chunk)
     return -1
   end
   -- 将文件中的数据读取到DeviceRouting.hashTable中
   DeviceRouting.hashTable = json.parse(chunk)
   -- 定时5s写入文件一次
   timer.setInterval(
-    5000,
+    serCfgInfo.GetDeviceRoutingsql_syncTime(),
     function()
       SynchronousData()
     end
   )
+  logger.info("DeviceRouting sql init success. timer:%d ms", serCfgInfo.GetDeviceRoutingsql_syncTime())
   return 0
 end
 return DeviceRouting

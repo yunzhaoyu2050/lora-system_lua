@@ -1,10 +1,9 @@
--- const BluebirdPromise = require('bluebird');
--- const { utils, consts } = require('../lora-lib');
+local logger = require("../../log.lua")
 local consts = require("../../lora-lib/constants/constants.lua")
 local DEVSTATUSANS_PARAM = consts.DEVSTATUSANS
 
 return function(devAddr, status)
-  p(
+  logger.info(
     {
       label = "MAC Command Ans",
       message = {

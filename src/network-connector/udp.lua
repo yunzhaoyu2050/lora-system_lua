@@ -1,6 +1,8 @@
 -- @info udp 服务器
 local dgram = require("dgram")
 local serverCfgInfo = require("../../server_cfg.lua")
+local logger = require("../log.lua")
+
 local udp = {
   ip = nil,
   port = nil,
@@ -44,13 +46,13 @@ function udp.Init(port, ip, type)
       end
     end
   )
-  p("udp server ip: " .. udp.ip .. ",port: " .. udp.port)
+  logger.info("udp server ip: " .. udp.ip .. ",port: " .. udp.port)
 end
 -- 发送消息
 -- @param msg 要发送的消息
 function udp.Send(msg, cliInfo)
   if msg == nil then
-    p("msg is nil.")
+    logger.error("msg is nil.")
   else
     udp.socket:send(
       msg,
@@ -70,6 +72,6 @@ function udp.Close()
     function(err)
     end
   )
-  p("udp ip:" .. udp.ip .. "port:" .. udp.port .. "close.")
+  logger.info("udp ip:" .. udp.ip .. "port:" .. udp.port .. "close.")
 end
 return udp

@@ -15,16 +15,24 @@ local _cfi = {
     logOutType = nil,
     logPath = nil
   },
+  simusql = {
+    appInfosql_syncTime = nil,
+    deviceInfosql_syncTime = nil,
+    deviceConfigsql_syncTime = nil,
+    deviceRoutingsql_syncTime = nil,
+    gatewayInfosql_syncTime = nil
+  },
   loraWan = {
     fcntCheckEnable = nil,
     downlinkDataDelay = nil,
+    macInFrmpaylaodEnable = nil
   },
   gateWay = {
     cmdGatewwayTxPowe = nil,
     enableImme = nil,
     enableIpol = nil,
     enableNcrc = nil,
-    enableRfch = nil,
+    enableRfch = nil
   }
 }
 
@@ -38,6 +46,7 @@ local function _setConfigFile(tcfg)
   _cfi.udp.ip = tcfg.udp.ip or "127.0.0.1"
   _cfi.loraWan.fcntCheckEnable = tcfg.loraWan.fcntCheckEnable or true
   _cfi.loraWan.downlinkDataDelay = tcfg.loraWan.downlinkDataDelay or 200
+  _cfi.loraWan.macInFrmpaylaodEnable = tcfg.loraWan.macInFrmpaylaodEnable or false
   _cfi.gateWay.cmdGatewwayTxPowe = tcfg.gateWay.cmdGatewwayTxPowe or 25
   _cfi.gateWay.enableImme = tcfg.gateWay.enableImme or false
   _cfi.gateWay.enableIpol = tcfg.gateWay.enableIpol or false
@@ -46,6 +55,13 @@ local function _setConfigFile(tcfg)
   _cfi.log.logLevel = tcfg.log.logLevel or "INFO"
   _cfi.log.logOutType = tcfg.log.logOutType or "terminal"
   _cfi.log.logPath = tcfg.log.logPath or "./"
+  _cfi.simusql.appInfosql_syncTime = tcfg.simusql.appInfosql_syncTime or 5000
+  _cfi.simusql.deviceInfosql_syncTime = tcfg.simusql.deviceInfosql_syncTime or 5000
+  _cfi.simusql.deviceConfigsql_syncTime = tcfg.simusql.deviceConfigsql_syncTime or 5000
+  _cfi.simusql.deviceRoutingsql_syncTime = tcfg.simusql.deviceRoutingsql_syncTime or 5000
+  _cfi.simusql.gatewayInfosql_syncTime = tcfg.simusql.gatewayInfosql_syncTime or 5000
+  -- p(tcfg)
+  -- p(_cfi)
   return 0
 end
 
@@ -127,6 +143,30 @@ function _gerLogPath()
   return _cfi.log.logPath
 end
 
+function _getMacInFrmpaylaodEnable()
+  return _cfi.loraWan.macInFrmpaylaodEnable
+end
+
+function _getAppInfosql_syncTime()
+  return _cfi.simusql.appInfosql_syncTime
+end
+
+function _getDeviceInfosql_syncTime()
+  return _cfi.simusql.deviceInfosql_syncTime
+end
+
+function _getDeviceConfigsql_syncTime()
+  return _cfi.simusql.deviceConfigsql_syncTime
+end
+
+function _getDeviceRoutingsql_syncTime()
+  return _cfi.simusql.deviceRoutingsql_syncTime
+end
+
+function _getGatewayInfosql_syncTime()
+  return _cfi.simusql.gatewayInfosql_syncTime
+end
+
 return {
   Init = _init,
   GetDataPath = _getDataPath,
@@ -141,5 +181,11 @@ return {
   GerEnableRfch = _gerEnableRfch,
   GerLogLevel = _gerLogLevel,
   GerLogOutType = _gerLogOutType,
-  GerLogPath = _gerLogPath
+  GerLogPath = _gerLogPath,
+  GetMacInFrmpaylaodEnable = _getMacInFrmpaylaodEnable,
+  GetAppInfosql_syncTime = _getAppInfosql_syncTime,
+  GetDeviceInfosql_syncTime = _getDeviceInfosql_syncTime,
+  GetDeviceConfigsql_syncTime = _getDeviceConfigsql_syncTime,
+  GetDeviceRoutingsql_syncTime = _getDeviceRoutingsql_syncTime,
+  GetGatewayInfosql_syncTime = _getGatewayInfosql_syncTime
 }

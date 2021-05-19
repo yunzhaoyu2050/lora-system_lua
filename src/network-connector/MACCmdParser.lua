@@ -6,14 +6,7 @@ local buffer = require("buffer").Buffer
 local bit = require("bit")
 local ffi = require("ffi")
 local utiles = require("../../utiles/utiles.lua")
-
--- -- buffer裁剪
--- -- @param start开始位置
--- function buffer:slice(offsetStart, offsetEnd)
---   local newBuf = buffer:new(offsetEnd - offsetStart + 1)
---   ffi.copy(newBuf.ctype, self.ctype + offsetStart - 1, offsetEnd - offsetStart + 1)
---   return newBuf
--- end
+local logger = require("../log.lua")
 
 -- 每个MAC命令是由 1字节命令码 (CID) 跟着一段可能为空的特定命令字节序列组成的。
 
@@ -21,7 +14,7 @@ local utiles = require("../../utiles/utiles.lua")
 -- @param macCommand buffer类型数据
 function parser(macCommand)
   if macCommand == nil then
-    p("macCommand is nil")
+    logger.error("macCommand is nil")
     return nil
   end
   local cmd = macCommand -- utiles.BufferFromHexString(macCommand:toString())
@@ -98,7 +91,7 @@ function parser(macCommand)
         Status = utiles.BufferSlice(cmd, consts.PAYLOAD_OFFEST + 1, offest)
       }
     else
-      p("bad cid of maccommand, or is no mac command", cid)
+      logger.error({"bad cid of maccommand, or is no mac command, cid:", cid})
       return {cmdArr = cmdArr, ansLen = ansLen}
     end
     payloadJson = {
@@ -107,7 +100,7 @@ function parser(macCommand)
     table.insert(cmdArr, payloadJson)
 
     if offest > cmd.length then
-      p("end ... Invalid format of MACCommand payload")
+      logger.error("end ... Invalid format of MACCommand payload")
       break
     else
       cmd = utiles.BufferSlice(cmd, offest, cmd.length)

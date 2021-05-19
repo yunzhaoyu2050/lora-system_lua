@@ -3,6 +3,7 @@ local serCfgInfo = require("../../../../server_cfg.lua")
 local json = require("json")
 local fs = require("fs")
 local timer = require("timer")
+local logger = require("../../../log.lua")
 
 local AppInfo = {
   timer = timer,
@@ -10,14 +11,14 @@ local AppInfo = {
 }
 
 -- 1、AppInfo.lua,	key:AppEUI,		file:AppInfo.data
---     memory:
+--  memory:
 -- 	"AppEUI",
 -- 	"userID",
 -- 	"name"
 
 function AppInfo.Write(appEui, info)
-  if appEui == nil then
-    p("appEui is nil")
+  if appEui == nil or type(appEui) ~= "string" then
+    logger.error("appEui is nil or type is not string")
     return -1
   end
   if AppInfo.hashTable[appEui] == nil then
@@ -26,24 +27,24 @@ function AppInfo.Write(appEui, info)
       userID = info.userID,
       name = info.name
     }
-    p("inster a new app info, appEui:" .. appEui)
+    logger.info("inster a new app info, appEui:%s", appEui)
     return 0
   end
-  p("appEui already exists, appEui:" .. appEui)
+  logger.warn("appEui already exists, appEui:%s", appEui)
   return -2
 end
 
 function AppInfo.Read(appEui)
-  if appEui == nil then
-    p("appEui is nil")
+  if appEui == nil or type(appEui) ~= "string" then
+    logger.error("appEui is nil or type is not string")
     return -1
   end
   return AppInfo.hashTable[appEui]
 end
 
 function AppInfo.Update(appEui, info)
-  if appEui == nil then
-    p("appEui is nil")
+  if appEui == nil or type(appEui) ~= "string" then
+    logger.error("appEui is nil or type is not string")
     return -1
   end
   if AppInfo.hashTable[appEui] ~= nil then
@@ -52,17 +53,17 @@ function AppInfo.Update(appEui, info)
       userID = info.userID,
       name = info.name
     }
-    p("update app info, appEui:" .. appEui)
+    logger.info("update app info, appEui:%s", appEui)
     return 0
   end
-  p("error :update app info is nil, appEui:" .. appEui)
+  logger.warn("update app info is nil, appEui:%s", appEui)
   return -2
 end
 
 -- 定时任务 将AppInfo.hashTable中的数据写入到AppInfo.data文件中
 local function SynchronousData()
   if AppInfo.hashTable == nil then
-    p("AppInfo.hashTable is nil")
+    logger.error("AppInfo.hashTable is nil")
     return -1
   end
   local tmp = json.stringify(AppInfo.hashTable)
@@ -80,26 +81,27 @@ function AppInfo.Init()
     -- 没有文件则创建一个空文件
     fd, err = fs.openSync(appInfoPath, "w+")
     if err ~= nil then
-      p(err, fd)
+      logger.error({"AppInfo open failed, err:, path:", err, appInfoPath})
       return -1
     end
-    p("create a new empty AppInfo.data")
+    logger.info("create a new empty AppInfo.data")
   end
   local stat = fs.statSync(appInfoPath)
   local chunk, err = fs.readSync(fd, stat.size, 0)
   if err ~= nil or chunk == nil then
-    p(err, chunk)
+    logger.error({"AppInfo read failed, err:, path:", err, appInfoPath})
     return -1
   end
   -- 将文件中的数据读取到AppInfo.hashTable中
   AppInfo.hashTable = json.parse(chunk)
-  -- 定时5s写入文件一次
+  -- 定时写入文件
   timer.setInterval(
-    5000,
+    serCfgInfo.GetAppInfosql_syncTime(),
     function()
       SynchronousData()
     end
   )
+  logger.info("AppInfo sql init success. timer:%d ms", serCfgInfo.GetAppInfosql_syncTime())
   return 0
 end
 

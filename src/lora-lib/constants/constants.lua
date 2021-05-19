@@ -1,9 +1,10 @@
 -- @info 静态值
 
 local buffer = require("buffer").Buffer
--- local basexx = require("../../../deps/basexx/lib/basexx.lua")
 local utiles = require("../../../utiles/utiles.lua")
 local config = require("../../../server_cfg.lua")
+local logger = require("../../log.lua")
+
 local consts = {}
 
 function consts.Init()
@@ -61,17 +62,6 @@ function consts.Init()
   -- AS923MHz ISM Band
   -- South Korea 920-923MHz ISM Band
 
-  -- consts.FREQUENCY_PLAN_LIST = {
-  --   433, -- EU 433MHz ISM Band
-  --   470, -- CN 470-510MHz Band
-  --   779,
-  --   863,
-  --   865,
-  --   902,
-  --   915,
-  --   920,
-  --   923
-  -- }
   consts.ISMFREQTABLE = {
     ["EU433"] = "EU433",
     ["CN470-510"] = "CN470-510",
@@ -95,6 +85,7 @@ function consts.Init()
       elseif rxFreq == "AS923AU915-928" then
         return "AS923AU915-928"
       else
+        logger.error("input rxFreq is string, but is not in ism freq list. %s", rxFreq)
         return ""
       end
     elseif type(rxFreq) == "number" then
@@ -109,9 +100,11 @@ function consts.Init()
       elseif rxFreq >= 915 and rxFreq <= 928 then
         return "AS923AU915-928"
       else
+        logger.error("input rxFreq is number, but is not in ism freq list. %d", rxFreq)
         return ""
       end
     else
+      logger.error("input rxFreq is none type")
       return ""
     end
   end
@@ -154,7 +147,6 @@ function consts.Init()
       MaxEIRP = 12.15
     },
     ["CN470-510"] = {
-      -- TODO: 核定
       frequencyPlan = "CN470-510",
       ChMask = "00FF",
       CFList = "",
@@ -228,12 +220,7 @@ function consts.Init()
         return i - 1
       end
     end
-    p(
-      "CN 470-510MHz Band, Only supports:",
-      consts.DR470510FREQTABLE,
-      ", The current frequency is not in this range:",
-      val
-    )
+    logger.error("val is not in table list, val:%d.", val)
     return -1
   end
 
@@ -976,6 +963,7 @@ function consts.Init()
     "codr",
     "ipol"
   }
+  logger.info("consts values init success")
   return 0
 end
 return consts

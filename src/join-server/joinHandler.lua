@@ -6,6 +6,8 @@ local utiles = require("../../utiles/utiles.lua")
 -- local bit = require("bit")
 local crypto = require("../../deps/lua-openssl/lib/crypto.lua")
 local rand = crypto.rand
+local logger = require("../log.lua")
+
 -- local lcrypto = require("../../deps/luvit-github/deps/tls/lcrypto.lua")
 
 -- DLSettings字段打包
@@ -161,14 +163,14 @@ local function readDevice(queryOpt)
     _AppKey = res.AppKey
     return res
   else
-    p("Device not registered on LoRa web server")
+    logger.error("Device not registered on LoRa web server")
     return nil
   end
 end
 
 -- join server模块 join请求流程 数据处理单元
 function handler(rxpk)
-  p("join request message process...")
+  logger.info("join request message process...")
   local joinReqPayload = rxpk.data
   local freq = rxpk.freq
   -- Check the length of join request
@@ -184,7 +186,7 @@ function handler(rxpk)
   local frequencyPlan = consts.GetISMFreqPLanOffset(freq)
   _defaultConf = consts.DEFAULTCONF[frequencyPlan]
   if _defaultConf == nil then
-    p("_defaultConf is nil")
+    logger.error("_defaultConf is nil")
     return nil
   end
   -- Query the existance of DevEUI
@@ -260,12 +262,12 @@ function handler(rxpk)
       AppSKey = utiles.BufferToHexString(_acpt.sKey.AppSKey)
     }
     -- _acpt.sKey = nil -- TODO:
-    p("   update mysql deviceInfo:")
-    p("                   DevAddr:", deviceInfoUpd.DevAddr)
-    p("                  AppNonce:", deviceInfoUpd.AppNonce)
-    p("                  DevNonce:", deviceInfoUpd.DevNonce)
-    p("                   NwkSKey:", deviceInfoUpd.NwkSKey)
-    p("                   AppSKey:", deviceInfoUpd.AppSKey)
+    logger.info("   update mysql deviceInfo:")
+    logger.info({"                   DevAddr:", deviceInfoUpd.DevAddr})
+    logger.info({"                  AppNonce:", deviceInfoUpd.AppNonce})
+    logger.info({"                  DevNonce:", deviceInfoUpd.DevNonce})
+    logger.info({"                   NwkSKey:", deviceInfoUpd.NwkSKey})
+    logger.info({"                   AppSKey:", deviceInfoUpd.AppSKey})
     _DevAddr = DevAddr
     _defaultConf.DevAddr = DevAddr
     _defaultConf.RX1DRoffset = RX1DRoffset
@@ -277,8 +279,8 @@ function handler(rxpk)
 
   local returnAcptMsg = function()
     local acptPHY = joinAcptPHYPackager(_acpt)
-    p("downstream data processing...")
-    p("   join Acpt PHY Packager:", acptPHY)
+    logger.info("downstream data processing...")
+    logger.info({"   join Acpt PHY Packager:%s", acptPHY})
     return acptPHY
   end
 
@@ -290,7 +292,7 @@ function handler(rxpk)
   res = rejoinProcedure(res)
   res = updateDevInfo(res)
   if res < 0 then
-    p("updateDevInfo failed")
+    logger.error("updateDevInfo failed")
     return nil
   end
   res = returnAcptMsg()

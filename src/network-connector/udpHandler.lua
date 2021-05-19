@@ -3,6 +3,7 @@ local phyParser = require("./phyParser.lua")
 local json = require("json")
 local buffer = require("buffer").Buffer
 local utiles = require("../../utiles/utiles.lua")
+local logger = require("../log.lua")
 
 local function txAckParser(txAckData)
   local txAckJSON
@@ -25,11 +26,11 @@ end
 -- @return nil: 粗解析失败, other: 解析成功
 function parser(data)
   if data == nil then
-    p("data is nil.")
+    logger.error("data is nil.")
     return nil
   end
   if #data < consts.UDP_DATA_BASIC_LENGTH then
-    p("Invalid length of udp data, greater than ${consts.UDP_DATA_BASIC_LENGTH - 1} bytes is mandatory")
+    logger.error("Invalid length of udp data, greater than ${consts.UDP_DATA_BASIC_LENGTH - 1} bytes is mandatory")
     return nil
   end
 
@@ -42,14 +43,14 @@ function parser(data)
   }
 
   if consts.UDP_VERSION_LIST[udpJSON.version] == nil then
-    p("Bad UDP version number!")
+    logger.error("Bad UDP version number!")
     return nil
   end
 
   local identifier = udpJSON.identifier
   if identifier == consts.UDP_ID_PUSH_DATA then
     if #data <= consts.PUSH_DATA_BASIC_LENGTH then
-      p("Invalid length of push data, greater than ${consts.PUSH_DATA_BASIC_LENGTH} bytes is mandatory")
+      logger.error("Invalid length of push data, greater than ${consts.PUSH_DATA_BASIC_LENGTH} bytes is mandatory")
       return nil
     end
     udpJSON.gatewayId = utiles.BufferToHexString(recvData, consts.UDP_GW_ID_OFFSET + 1, consts.UDP_JSON_OBJ_OFFSET)
@@ -60,7 +61,7 @@ function parser(data)
     -- return nil -- TODO: 当前不测试推送的数据
     -- 当前不处理推送的数据
     if #data ~= consts.PULL_DATA_LENGTH then
-      p("Invalid length of pull data, ${consts.PULL_DATA_LENGTH} bytes is mandatory")
+      logger.error("Invalid length of pull data, ${consts.PULL_DATA_LENGTH} bytes is mandatory")
       return nil
     end
     udpJSON.gatewayId = utiles.BufferToHexString(recvData, consts.UDP_GW_ID_OFFSET + 1, consts.UDP_JSON_OBJ_OFFSET)
@@ -77,24 +78,24 @@ function parser(data)
     -- 如果未报告任何错误，则“有效负载”字段包含值“ \ 0”的一个八位字节。
     -- 如果报告了错误，则该字段包含JSON“错误”对象。
     if udpJSON.txAckData ~= nil then
-      p("   txAckData:", udpJSON.txAckData)
+      logger.info({"   txAckData:", udpJSON.txAckData})
     else
-      p("   ack no error")
+      logger.error("   ack no error")
     end
-    p("Currently only processing tx ack data. ", udpJSON)
+    logger.warn({"Currently only processing tx ack data. ", udpJSON})
     return nil -- TODO: 当前不测试tx ack的数据
   else
-    p("Invalid identifier, any of [0x00, 0x02, 0x05] is required")
+    logger.error("Invalid identifier, any of [0x00, 0x02, 0x05] is required")
     return nil
   end
-  p("gateway -> server, data parser:", udpJSON)
+  logger.info({"gateway -> server, data parser:", udpJSON})
   return udpJSON
 end
 
 -- 下行处理打包数据
 local function packager(requiredFields)
   if requiredFields == nil then
-    p("function <packager>, requiredFields param is nil")
+    logger.error("function <packager>, requiredFields param is nil")
     return nil
   end
   -- TODO-Schema validation
@@ -126,7 +127,7 @@ local function packager(requiredFields)
     utiles.BufferWrite(payloadBuf, 1, requiredFields.payload, #requiredFields.payload) -- consts.UDP_VERSION_OFFSET + consts.UDP_TOKEN_OFFSET + consts.UDP_IDENTIFIER_OFFSET + 1
     data = utiles.BufferConcat(data, payloadBuf)
   else
-    p("Bad type of UDP identifier")
+    logger.error("Bad type of UDP identifier")
     return nil
   end
   local tmp = data:toString()
@@ -137,9 +138,9 @@ end
 -- @param incomingJSON gateway -> server传过来粗解析后的数据
 -- @return ACK错误：nil, ACK成功：非nil
 function ACK(incomingJSON)
-  p("server -> gateway, data process")
+  logger.info("server -> gateway, data process")
   if incomingJSON == nil then
-    p("function <ACK>, incomingJSON param is nil")
+    logger.error("function <ACK>, incomingJSON param is nil")
     return nil
   end
   local identifierTemp = {
@@ -164,15 +165,15 @@ end
 -- pushData解析
 -- @param udpPushJSON
 function pushDataParser(udpPushJSON)
-  p("rough analysis of upstream data...")
+  logger.info("rough analysis of upstream data...")
   if udpPushJSON == nil then
-    p("udpPushJSON is nil")
+    logger.error("udpPushJSON is nil")
     return -1
   end
   local JSONStr = udpPushJSON.pushData
   local pushDataJSON = json.parse(JSONStr)
   if pushDataJSON == nil then
-    p("Error format of JSON, unable to parse")
+    logger.error("Error format of JSON, unable to parse")
     return -2
   end
   -- pushData粗解析
@@ -201,7 +202,7 @@ function pushDataParser(udpPushJSON)
         rxpkPromise[k] = {}
         rxpkPromise[k] = element
       else
-        p("data is nil, phy layer parser failed.")
+        logger.error("data is nil, phy layer parser failed.")
       end
     end
   else
@@ -210,7 +211,7 @@ function pushDataParser(udpPushJSON)
   if rxpkPromise ~= nil then
     output.rxpk = rxpkPromise
   end
-  p("output:", output)
+  -- logger.info("output:", output)
   return output
 end
 

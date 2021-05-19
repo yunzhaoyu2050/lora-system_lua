@@ -1,22 +1,9 @@
 local utiles = require("../../utiles/utiles.lua")
--- const BluebirdPromise = require('bluebird');
 local MacCommandHandler = require("./macCmdHandlers/macCmdHandlers.lua")
--- const AdrControlScheme = require('./controlSchemes/adrControlScheme');
 local constants = require("../lora-lib/constants/constants.lua")
 local DownlinkCmdQueue = require("../lora-lib/models/RedisModels/DownlinkCmdQueue.lua")
--- // const DeviceRXInfo = require('../lib/converter/deviceRXInfo');
--- // const MacCommand = require('../lib/converter/macCommand');
-
--- class ProcessFlow {
-
---   constructor(mysqlConn, redisConn, log) {
-
---     this.mysqlConn = mysqlConn;
---     this.redisConn = redisConn;
---     this.log = log;
---     this.cmdHandler = MacCommandHandler;
---     this.adrControlScheme = new AdrControlScheme(mysqlConn, redisConn, log);
---   }
+local adrControlScheme = require("./controlSchemes/adrControlScheme.lua")
+local logger = require("../log.lua")
 
 local function GetCidIndex(cmdTbl)
   for k, _ in pairs(cmdTbl) do
@@ -51,7 +38,7 @@ function process(messageObj)
     messageObj.DevAddr == nil or messageObj.adr == nil or messageObj.data == nil or messageObj.devtx == nil or
       messageObj.gwrx == nil
    then
-    p("Invalid message from kafka, Message ${JSON.stringify(messageObj)}")
+    logger.error("Invalid message from kafka, Message ${JSON.stringify(messageObj)}")
     return nil
   end
 
@@ -63,19 +50,17 @@ function process(messageObj)
     gwrx = messageObj.gwrx
   }
 
-  -- let _this = this;
   local dlkCmdQue = DownlinkCmdQueue
-  -- let log = this.log;
   local processFlow = {}
 
   -- process mac commands (req and ans)
 
   if devAddr == nil or cmds == nil then
-    p("Lack of devAddr or data from kafka message", devAddr, cmds)
+    logger.error({"Lack of devAddr or data from kafka message", devAddr, cmds})
   end
 
   -- get all commands in downlink queue
-  local mqKey = constants.MACCMDQUEREQ_PREFIX .. devAddr;
+  local mqKey = constants.MACCMDQUEREQ_PREFIX .. devAddr
   local dlkArr = dlkCmdQue.getAll(mqKey)
   if dlkArr then
     -- misMatchIndex is index in downlink queue
@@ -89,7 +74,6 @@ function process(messageObj)
 
       -- process cmd req from device (cid = 0x01 0x02 0x0B 0x0D)
       if IsExistInCmdTbl(constants.QUEUE_CMDANS_LIST, cid) == true then
-        -- continue;
         __getCmdHandlerFunc(devAddr, cid, cmds[i][cid], remains)
       else
         -- match cmd answers from device with req in downlink queue
@@ -108,9 +92,9 @@ function process(messageObj)
           processFlow.push(_this.__getCmdHandlerFunc(devAddr, parseInt(cid, 16), cmds[i][cid], remains))
         else
           if (misMatchIndex == -1) then
-            p(
-              "uplink cmd mismatched with downlink cmd queue",
+            logger.error(
               {
+                message = "uplink cmd mismatched with downlink cmd queue",
                 uplinkIndex = i,
                 uplinkCid = cid,
                 downlinkIndex = matchIndex,
@@ -120,7 +104,7 @@ function process(messageObj)
           end
           if misMatchIndex == -1 then
             misMatchIndex = matchIndex
-          else  
+          else
             misMatchIndex = misMatchIndex
           end
         end
@@ -147,17 +131,11 @@ function process(messageObj)
 
   -- push adr device status handler function
   if isAdr ~= 0 then
-    processFlow.push(adrControlScheme.adrHandler.bind(_this.adrControlScheme, devAddr, remains.devtx))
+    adrControlScheme.adrHandler(devAddr, remains.devtx)
   end
 
   -- process all command and adr report sequentially
-  -- return BluebirdPromise.map(
-  --   processFlow,
-  --   function(process)
-  --     return process()
-  --   end
-  -- )
-  p("process all command and adr report sequentially", dlkCmdQue.checkQueueLength(mqKey))
+  logger.info({"process all command and adr report sequentially,", dlkCmdQue.checkQueueLength(mqKey)})
 end
 
 --
@@ -221,11 +199,11 @@ function __getCmdHandlerFunc(devaddr, cid, payload, remains)
       return fn(devaddr, payload)
     end,
     [utiles.Default] = function()
-      p("item is other, please check it.", cid)
+      logger.error({"item is other, please check it. cid:", cid})
       return nil
     end,
     [utiles.Nil] = function()
-      p("cid is nil")
+      logger.error("cid is nil")
     end
   }
 end

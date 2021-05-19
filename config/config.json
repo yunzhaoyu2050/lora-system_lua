@@ -4,8 +4,8 @@
     // "config": "./config/"
   },
   "udp": {
-    "ip": "127.0.0.1",
-    // "ip": "192.168.1.157",
+    // "ip": "127.0.0.1",
+    "ip": "192.168.1.157",
     "port": 1700
   },
   "log": {
@@ -13,11 +13,18 @@
     "logOutType": "terminal", // log输出方式： terminal, file@runlog.log, net@127.0.0.1:5001,
     "logPath": "./"
   },
+  "simusql": {
+    "appInfosql_syncTime": 5000, // 单位 s
+    "deviceInfosql_syncTime": 1000,
+    "deviceConfigsql_syncTime": 3000,
+    "deviceRoutingsql_syncTime": 1000,
+    "gatewayInfosql_syncTime": 5000
+  },
   "loraWan": {
     "fcntCheckEnable": false,
     // "deduplication_Delay": 200,
     "downlinkDataDelay": 200,
-    "macInFrmpaylaodEnable": false // mac cmd字段是否填写在frmayload字段中，否则则填写在fopts字段中（但当其长度大于fopts字段最大长度时仍然填写在frmpayload字段中）
+    "macInFrmpaylaodEnable": true // mac cmd字段是否填写在frmayload字段中，否则则填写在fopts字段中（但当其长度大于fopts字段最大长度时仍然填写在frmpayload字段中）
   },
   "gateWay": {
     /* 

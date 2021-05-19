@@ -1,19 +1,20 @@
 -- network-server 数据处理部分
 local DataConverter = require("./dataConverter.lua")
 local utiles = require("../../utiles/utiles.lua")
+local logger = require("../log.lua")
 
 function process(data)
   if data == nil then
-    p("data is nil")
+    logger.error("data is nil")
     return nil
   end
-  p("server data handler start...")
+  logger.info("server data handler start...")
   if data.type == nil or type(data.type) ~= "string" then
-    p("data.type is nil", data)
+    logger.error("data.type is nil", data)
     return nil
   end
   if data.data == nil then
-    p("data.data is nil", data)
+    logger.error("data.data is nil", data)
     return nil
   end
   local ret = nil
@@ -39,16 +40,16 @@ function process(data)
         return DataConverter.applicationAcceptHandler(retData) -- Application Server ---> Network Server
       end,
       [utiles.Default] = function()
-        p("data.type is error", retData)
+        logger.error({"data.type is error", retData})
       end
     }
-    p("retIndex, retData:", retIndex)
+    logger.info({"retIndex:", retIndex})
     if retData == nil or retIndex == "other" then
       break
     end
   end
   ret = retData
-  p("server module _> connector module, send message")
+  logger.info("server module _> connector module, send message")
   return ret
 end
 return {

@@ -95,17 +95,21 @@ function _logger.init()
   return 0
 end
 
-function _logger.info(v)
-  return _logger.logger.print:info(v)
+function _logger.info(...)
+  return _logger.logger.print:info(...)
 end
 
 
-function _logger.debug(v)
-  return _logger.logger.print:debug(v)
+function _logger.debug(...)
+  return _logger.logger.print:debug(...)
 end
 
-function _logger.error(v)
-  return _logger.logger.print:error(v)
+function _logger.error(...)
+  return _logger.logger.print:error(...)
+end
+
+function _logger.warn(...)
+  return _logger.logger.print:warn(...)
 end
 -- e.g
 -- log.print:info("logging.console test")

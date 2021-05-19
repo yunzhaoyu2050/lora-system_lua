@@ -1,6 +1,7 @@
 local Object = require("core").Object
 local PubControllerModel = Object:extend()
 local utiles = require("../../utiles/utiles.lua")
+local logger = require("../log.lua")
 
 function PubControllerModel:initialize(rxInfoArr, adr, macCmdArr)
   self.DevAddr = rxInfoArr.DevAddr
@@ -55,7 +56,7 @@ function PubControllerModel:initialize(rxInfoArr, adr, macCmdArr)
         oneGwrx.size = v
       end,
       [utiles.Default] = function()
-        p("item is other, please check it.", k)
+        logger.warn({"item is other, please check it. k:", k})
       end
     }
   end

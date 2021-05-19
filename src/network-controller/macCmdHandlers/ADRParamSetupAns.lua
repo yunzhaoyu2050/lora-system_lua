@@ -1,7 +1,7 @@
--- const BluebirdPromise = require('bluebird');
+local logger = require("../../log.lua")
 
 return function(devAddr, status)
-  p(
+  logger.info(
     {
       label = "MAC Command Ans",
       message = {

@@ -4,6 +4,7 @@ local json = require("json")
 local fs = require("fs")
 local timer = require("timer")
 local utiles = require("../../../../utiles/utiles.lua")
+local logger = require("../../../log.lua")
 
 local DeviceInfo = {
   timer = timer,
@@ -26,7 +27,7 @@ local DeviceInfo = {
 
 function DeviceInfo.Write(devAddr, info)
   if devAddr == nil then
-    p("devAddr is nil")
+    logger.error("devAddr is nil")
     return -1
   end
   if DeviceInfo.hashTable[devAddr] == nil then
@@ -45,16 +46,16 @@ function DeviceInfo.Write(devAddr, info)
       NFCntDown = info.NFCntDown,
       AFCntDown = info.AFCntDown
     }
-    p("inster a new DeviceInfo, devAddr:" .. devAddr)
+    logger.info("inster a new DeviceInfo, devAddr:", devAddr)
     return 0
   end
-  p("devAddr already exists, devAddr:" .. devAddr)
+  logger.warn("devAddr already exists, devAddr:%s", devAddr)
   return -2
 end
 
 function DeviceInfo.Read(devAddr)
   if devAddr == nil then
-    p("devAddr is nil")
+    logger.error("devAddr is nil")
     return -1
   end
   return DeviceInfo.hashTable[devAddr]
@@ -104,7 +105,7 @@ end
 -- @return -1 失败 成员集合 成功
 function DeviceInfo.readItem(index, item)
   if index == nil or item == nil then
-    p("index or item is nil")
+    logger.error("index or item is nil")
     return -1
   end
   local tmp = {}
@@ -160,7 +161,7 @@ end
 
 function DeviceInfo.Update(devAddr, info)
   if devAddr == nil then
-    p("devAddr is nil")
+    logger.error("devAddr is nil")
     return -1
   end
   if DeviceInfo.hashTable[devAddr] ~= nil then
@@ -180,10 +181,10 @@ function DeviceInfo.Update(devAddr, info)
       NFCntDown = info.NFCntDown,
       AFCntDown = info.AFCntDown
     }
-    p("update DeviceInfo, devAddr:" .. devAddr)
+    logger.info("update DeviceInfo, devAddr:%s", devAddr)
     return 0
   end
-  p("error :update DeviceInfo is nil, devAddr:" .. devAddr)
+  logger.warn("update DeviceInfo is nil, devAddr:%s", devAddr)
   return -2
 end
 
@@ -193,7 +194,7 @@ end
 -- @return 0:成功 <0:失败
 function DeviceInfo.UpdateItem(appoint, item)
   if appoint == nil or item == nil then
-    p("index or item is nil")
+    logger.error("index or item is nil")
     return -1
   end
   local inK, inV = GetInputVal(appoint)
@@ -241,10 +242,10 @@ function DeviceInfo.UpdateItem(appoint, item)
             DeviceInfo.hashTable[k].AFCntDown = v
           end,
           [utiles.Nil] = function()
-            p("i is nil")
+            logger.error("i is nil")
           end,
           [utiles.Default] = function()
-            p("item is other, please check it.", i)
+            logger.warn({"item is other, please check it.", i})
           end
         }
       end
@@ -255,7 +256,7 @@ end
 -- 定时任务 将DeviceInfo.hashTable中的数据写入到DeviceInfo.data文件中
 local function SynchronousData()
   if DeviceInfo.hashTable == nil then
-    p("DeviceInfo.hashTable is nil")
+    logger.error("DeviceInfo.hashTable is nil")
     return -1
   end
   local tmp = json.stringify(DeviceInfo.hashTable)
@@ -273,26 +274,27 @@ function DeviceInfo.Init()
     -- 没有文件则创建一个空文件
     fd, err = fs.openSync(deviceInfoPath, "w+")
     if err ~= nil then
-      p(err, fd)
+      logger.error("err:", err, fd)
       return -1
     end
-    p("create a new empty DeviceInfo.data")
+    logger.info("create a new empty DeviceInfo.data")
   end
   local stat = fs.statSync(deviceInfoPath)
   local chunk, err = fs.readSync(fd, stat.size, 0)
   if err ~= nil or chunk == nil then
-    p(err, chunk)
+    logger.error("err:", err, chunk)
     return -1
   end
   -- 将文件中的数据读取到DeviceInfo.hashTable中
   DeviceInfo.hashTable = json.parse(chunk)
-  -- 定时5s写入文件一次
+  -- 定时写入文件
   timer.setInterval(
-    2000,
+    serCfgInfo.GetDeviceInfosql_syncTime(),
     function()
       SynchronousData()
     end
   )
+  logger.info("DeviceInfo sql init success. timer:%d ms", serCfgInfo.GetDeviceInfosql_syncTime())
   return 0
 end
 

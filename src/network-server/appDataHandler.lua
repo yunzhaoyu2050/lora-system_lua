@@ -6,6 +6,7 @@ local appServer = require("../application-server/application-server.lua")
 local buffer = require("buffer").Buffer
 local PubControllerModel = require("./pubControllerModel.lua")
 local controllerHandle = require("../network-controller/controller.lua")
+local logger = require("../log.lua")
 
 -- app data 上行处理流程 - 更新设备路由信息
 local function updateDeviceRouting(deviceStatus)
@@ -16,17 +17,17 @@ local function updateDeviceRouting(deviceStatus)
   local res = DeviceInfoRedis.Read(devaddr)
   if res ~= nil then
     if res.frequencyPlan == nil then
-      p("DevAddr does not exist frequencyPlan in DeviceInfo", devaddr)
+      logger.error({"DevAddr does not exist frequencyPlan in DeviceInfo, devaddr:%s", devaddr})
       return nil
     end
 
     if (res.RX1DRoffset == nil and res.RX1DRoffset ~= 0) then
-      p("DevAddr does not exist RX1DRoffset in DeviceInfo", devaddr)
+      logger.error({"DevAddr does not exist RX1DRoffset in DeviceInfo, devaddr:%s", devaddr})
       return nil
     end
 
     if (res.RX1Delay == nil and res.RX1Delay ~= 0) then
-      p("DevAddr does not exist RX1Delay in DeviceInfo", devaddr)
+      logger.error({"DevAddr does not exist RX1Delay in DeviceInfo, devaddr:%s", devaddr})
       return nil
     end
 
@@ -39,7 +40,7 @@ local function updateDeviceRouting(deviceStatus)
     if res.RX1Delay == 0 then
       tmstOffset = 1 * 1000 * 1000 -- 1s
     elseif res.RX1Delay > 15 * 1000 then
-      p("DevAddr RX1Delay more than 15 in DeviceInfo", devaddr)
+      logger.error({"DevAddr RX1Delay more than 15 in DeviceInfo, devaddr:%s", devaddr})
       return nil
     else
       tmstOffset = res.RX1Delay * 1000 -- 转换成ns RX1Delay是按照ms存储的
@@ -88,7 +89,7 @@ local function updateDeviceRouting(deviceStatus)
 
     return DeviceInfoRedis.UpdateItem(query, updateOpts)
   else
-    p("DevAddr does not exist in DeviceConfig", deviceStatus.DevAddr)
+    logger.error({"DevAddr does not exist in DeviceConfig, devaddr:", utiles.BufferToHexString(deviceStatus.DevAddr)})
     return nil
   end
 end
@@ -129,7 +130,7 @@ function handle(rxInfoArr, appObj)
       FRMPayload = appObj.MACPayload.FRMPayload
     }
     -- p(appObj)
-    p("server module _> app module, send app message")
+    logger.info("server module _> app module, send app message")
     return appServer.Process("ServerPubToApp", message)
   end
 
@@ -159,7 +160,7 @@ function handle(rxInfoArr, appObj)
     elseif adr == 1 then
       pubControllerModel = PubControllerModel:new(rxInfoArr, adr)
     else
-      p("   Business data does not require mac command processing")
+      logger.error("   Business data does not require mac command processing")
       return nil
     end
 
@@ -173,7 +174,7 @@ function handle(rxInfoArr, appObj)
       gwrx = pubControllerModel:getgwrx()
     }
 
-    p("server module _> controller module, send mac cmd message")
+    logger.info("server module _> controller module, send mac cmd message")
     return controllerHandle.Process(message) -- _this.mqClient.publish(topic, message);
   end
   -- end

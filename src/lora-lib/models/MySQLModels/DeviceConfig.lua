@@ -4,6 +4,7 @@ local json = require("json")
 local fs = require("fs")
 local timer = require("timer")
 local utiles = require("../../../../utiles/utiles.lua")
+local logger = require("../../../log.lua")
 
 local DeviceConfig = {
   timer = timer,
@@ -11,27 +12,27 @@ local DeviceConfig = {
 }
 
 -- 2、DeviceConfig.lua,		key: DevAddr,		file:DeviceConfig.data
---     memory:
---       	"DevAddr",
---       	"frequencyPlan",
---       	"ADR",
---       	"ADR_ACK_LIMIT",
---       	"ADR_ACK_DELAY",
---       	"ChMask",
---       	"CFList",
---       	"ChDrRange",
---       	"RX1CFList",
---       	"RX1DRoffset",
---       	"RX1Delay",
---       	"RX2Freq",
---       	"RX2DataRate",
---       	"NbTrans",
---       	"MaxDCycle",
---       	"MaxEIRP"
+--  memory:
+--  "DevAddr",
+--  "frequencyPlan",
+--  "ADR",
+--  "ADR_ACK_LIMIT",
+--  "ADR_ACK_DELAY",
+--  "ChMask",
+--  "CFList",
+--  "ChDrRange",
+--  "RX1CFList",
+--  "RX1DRoffset",
+--  "RX1Delay",
+--  "RX2Freq",
+--  "RX2DataRate",
+--  "NbTrans",
+--  "MaxDCycle",
+--  "MaxEIRP"
 
 function DeviceConfig.Write(devAddr, info)
   if devAddr == nil then
-    p("devAddr is nil")
+    logger.error("devAddr is nil")
     return -1
   end
   if DeviceConfig.hashTable[devAddr] == nil then
@@ -53,16 +54,16 @@ function DeviceConfig.Write(devAddr, info)
       MaxDCycle = info.MaxDCycle,
       MaxEIRP = info.MaxEIRP
     }
-    p("inster a new DeviceConfig, devAddr:" .. devAddr)
+    logger.info("inster a new DeviceConfig, devAddr:%s", devAddr)
     return 0
   end
-  p("devAddr already exists, devAddr:" .. devAddr)
+  logger.warn("devAddr already exists, devAddr:%s", devAddr)
   return -2
 end
 
 function DeviceConfig.Read(devAddr)
   if devAddr == nil then
-    p("devAddr is nil")
+    logger.error("devAddr is nil")
     return -1
   end
   return DeviceConfig.hashTable[devAddr]
@@ -139,7 +140,7 @@ end
 -- @return -1 失败 成员集合 成功
 function DeviceConfig.readItem(devaddr, item)
   if devaddr == nil then
-    p("devaddr is nil")
+    logger.error("devaddr is nil")
     return -1
   end
   if item == nil then
@@ -223,7 +224,7 @@ end
 
 function DeviceConfig.Update(devAddr, info)
   if devAddr == nil then
-    p("devAddr is nil")
+    logger.error("devAddr is nil")
     return -1
   end
   if DeviceConfig.hashTable[devAddr] ~= nil then
@@ -245,10 +246,10 @@ function DeviceConfig.Update(devAddr, info)
       MaxDCycle = info.MaxDCycle,
       MaxEIRP = info.MaxEIRP
     }
-    p("update DeviceConfig, devAddr:" .. devAddr)
+    logger.info("update DeviceConfig, devAddr:%s", devAddr)
     return 0
   end
-  p("error :update DeviceConfig is nil, devAddr:" .. devAddr)
+  logger.warn("update DeviceConfig is nil, devAddr:%s", devAddr)
   return -2
 end
 
@@ -258,7 +259,7 @@ end
 -- @return 0:成功 <0:失败
 function DeviceConfig.UpdateItem(appoint, item)
   if appoint == nil or item == nil then
-    p("index or item is nil")
+    logger.error("index or item is nil")
     return -1
   end
   local inK, inV = GetInputVal(appoint)
@@ -315,10 +316,10 @@ function DeviceConfig.UpdateItem(appoint, item)
             DeviceConfig.hashTable[k].MaxEIRP = v
           end,
           [utiles.Nil] = function()
-            p("i is nil")
+            logger.error("i is nil")
           end,
           [utiles.Default] = function()
-            p("item is other, please check it.", i)
+            logger.warn({"item is other, please check it. i:", i})
           end
         }
       end
@@ -335,7 +336,7 @@ end
 -- 同步数据
 local function SynchronousData()
   if DeviceConfig.hashTable == nil then
-    p("DeviceConfig.hashTable is nil")
+    logger.error("DeviceConfig.hashTable is nil")
     return -1
   end
   local tmp = json.stringify(DeviceConfig.hashTable)
@@ -353,26 +354,27 @@ function DeviceConfig.Init()
     -- 没有文件则创建一个空文件
     fd, err = fs.openSync(deviceConfigPath, "w+")
     if err ~= nil then
-      p(err, fd)
+      logger.error("err:%s", err)
       return -1
     end
-    p("create a new empty DeviceConfig.data")
+    logger.info("create a new empty DeviceConfig.data")
   end
   local stat = fs.statSync(deviceConfigPath)
   local chunk, err = fs.readSync(fd, stat.size, 0)
   if err ~= nil or chunk == nil then
-    p(err, chunk)
+    logger.error("err:%s", err)
     return -1
   end
   -- 将文件中的数据读取到DeviceConfig.hashTable中
   DeviceConfig.hashTable = json.parse(chunk)
-  -- 定时5s写入文件一次
+  -- 定时写入文件
   timer.setInterval(
-    2000,
+    serCfgInfo.GetDeviceConfigsql_syncTime(),
     function()
       SynchronousData()
     end
   )
+  logger.info("DeviceConfig sql init success. timer:%d ms", serCfgInfo.GetDeviceConfigsql_syncTime())
   return 0
 end
 

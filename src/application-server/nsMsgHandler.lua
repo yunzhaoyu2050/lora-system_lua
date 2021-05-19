@@ -1,5 +1,5 @@
 local utiles = require("../../utiles/utiles.lua")
-
+local logger = require("../log.lua")
 -- const pubToCloudKafkaTopic = require('../config').mqClient_as.topics.pubToCloud;
 -- const _ = require('lodash');
 -- const BluebirdPromise = require('bluebird');
@@ -18,16 +18,16 @@ local utiles = require("../../utiles/utiles.lua")
 
 -- app数据处理
 function handler(message)
-  p(" app module handle...")
+  logger.info(" app module handle...")
   -- TODO:Json schema
   -- local appDataObject = {}
   -- local whereOpts = {
   --   DevAddr = message.DevAddr
   -- }
   if message.FRMPayload ~= nil then
-    p("message.FRMPayload:", message.FRMPayload)
+    logger.info({"message.FRMPayload:", utiles.BufferToHexString(message.FRMPayload)})
     local appFRMPayloadBuf = utiles.BufferFrom(message.FRMPayload)
-    p(" >>>> appFRMPayloadBuf:", appFRMPayloadBuf:toString())
+    logger.info({" >>>> appFRMPayloadBuf:", appFRMPayloadBuf:toString()})
   end
   -- TODO
   -- According to the needs, customize the way of data processing.

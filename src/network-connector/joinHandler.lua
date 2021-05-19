@@ -4,6 +4,7 @@ local buffer = require("buffer").Buffer
 local utiles = require("../../utiles/utiles.lua")
 local aesCmac = require("../../utiles/node-aes-cmac-lua/lib/aes-cmac.lua").aesCmac
 local crypto = require("../../deps/lua-openssl/lib/crypto.lua")
+local logger = require("../log.lua")
 
 local function MHDRPackager(mhdr)
   local MHDR = buffer:new(consts.MHDR_LEN)
@@ -29,12 +30,12 @@ local function AcptEncryption(acpt, key)
   -- consts.ENCRYPTION_ALGO
   local cipher, err = crypto.decrypt("aes128", acpt:toString(), newKey:toString(), iv, true) -- 使用解密生成！！！
   if err ~= nil then
-    p("function <crypto.decrypt> aes-128-ecb failed,", err)
+    logger.error({"function <crypto.decrypt> aes-128-ecb failed,", err})
     return nil
   end
 
-  p("   join-accept message:", utiles.BufferToHexString(acpt), ",key:", utiles.BufferToHexString(newKey))
-  p("   decrypt:", crypto.hex(cipher))
+  logger.info({"   join-accept message:, key:", utiles.BufferToHexString(acpt), utiles.BufferToHexString(newKey)})
+  logger.info({"   decrypt:", crypto.hex(cipher)})
 
   local outBuf = buffer:new(cipher)
   return outBuf
@@ -61,7 +62,7 @@ function packager(phyPayloadJSON, key)
   utiles.BufferCopy(newPhyPayloadJSON.MACPayload.RxDelay, 1, phyPayloadJSON.MACPayload.RxDelay)
 
   local MIC = joinMICCalculator(newPhyPayloadJSON, key, "accept") -- 计算mic值aes_cmac
-  p("     join accept message mic value:", utiles.BufferToHexString(MIC))
+  logger.info({"     join accept message mic value:", utiles.BufferToHexString(MIC)})
   -- macpayload数据打包
   local macpayload = utiles.BufferConcat(utiles.reverse(MACPayloadJSON.AppNonce), utiles.reverse(MACPayloadJSON.NetID))
   local _devAddr = buffer:new(consts.DEVADDR_LEN)
@@ -91,7 +92,7 @@ function packager(phyPayloadJSON, key)
 
   local phypayload = utiles.BufferConcat(phyPayloadJSON.MHDR, encmacpayload)
   -- 生成打包好的数据
-  p("     join accept message phypayload packager:", utiles.BufferToHexString(phypayload))
+  logger.info({"     join accept message phypayload packager:", utiles.BufferToHexString(phypayload)})
   return phypayload
 end
 
@@ -182,7 +183,7 @@ function joinMICCalculator(requiredFields, key, typeInput)
 end
 
 local function micVerification(requiredFields, key, receivedMIC)
-  p("   mic value Verification:")
+  -- logger.info("   mic value Verification:")
   -- 复制一份requiredFields防止误修改原先的值
   local newrequiredFields = {
     MHDR = requiredFields.MHDR
@@ -198,17 +199,16 @@ local function micVerification(requiredFields, key, receivedMIC)
 
   local calculatedMIC = joinMICCalculator(newrequiredFields, key, "request")
   calculatedMIC = receivedMIC --TODO: 调试
-  p("       calculatedMIC:", utiles.BufferToHexString(calculatedMIC))
-  p("         receivedMIC:", utiles.BufferToHexString(receivedMIC))
+  logger.info({"       calculatedMIC:", utiles.BufferToHexString(calculatedMIC)})
+  logger.info({"         receivedMIC:", utiles.BufferToHexString(receivedMIC)})
   if utiles.BufferToHexString(receivedMIC) == utiles.BufferToHexString(calculatedMIC) then
-    p("   mic value, verification succeeded")
+    logger.info("   mic value, verification succeeded")
     return {}
   else
-    p(
-      "   MIC Mismatch, recvmic:",
+    logger.error({
+      "   MIC Mismatch, recvmic:%s, calcmic:%s",
       utiles.BufferToHexString(calculatedMIC),
-      "calcmic:",
-      utiles.BufferToHexString(receivedMIC)
+      utiles.BufferToHexString(receivedMIC)}
     )
     return nil
   end
@@ -225,7 +225,7 @@ end
 
 -- 入网请求解析部分
 function parser(phyPayloadJSON)
-  p("Join Request message parser...")
+  logger.info("Join Request message parser...")
   local MACPayload = joinReqParser(phyPayloadJSON.macPayload) -- macPayload相当于Join-Request
   local phyPayload = {
     MHDR = phyPayloadJSON.mhdrJSON,
@@ -239,25 +239,25 @@ function parser(phyPayloadJSON)
     DevNonce = MACPayload.DevNonce,
     MIC = phyPayloadJSON.mic
   }
-  p("   join reqest message:")
-  p("                  MHDR:", MICfields.MHDR)
-  p("                AppEUI:", utiles.BufferToHexString(MICfields.AppEUI))
-  p("                DevEUI:", utiles.BufferToHexString(MICfields.DevEUI))
-  p("              DevNonce:", utiles.BufferToHexString(MICfields.DevNonce))
-  p("                   MIC:", utiles.BufferToHexString(MICfields.MIC))
+  logger.info("   join reqest message:")
+  logger.info({"                  MHDR:", MICfields.MHDR})
+  logger.info({"                AppEUI:", utiles.BufferToHexString(MICfields.AppEUI)})
+  logger.info({"                DevEUI:", utiles.BufferToHexString(MICfields.DevEUI)})
+  logger.info({"              DevNonce:", utiles.BufferToHexString(MICfields.DevNonce)})
+  logger.info({"                   MIC:", utiles.BufferToHexString(MICfields.MIC)})
   local query = {
     DevEUI = utiles.BufferToHexString(MACPayload.DevEUI)
   }
   local res = DeviceInfoMysql.readItem(query, {"AppKey"}) -- 数据库中查询AppKey值
   if res.AppKey == nil then
-    p("Query the deveui information of no such device from the device library, deveui:", query.DevEUI)
+    logger.error({"Query the deveui information of no such device from the device library, deveui:", query.DevEUI})
     return nil
   end
   res = micVerification(MICfields, res.AppKey, phyPayloadJSON.mic)
   if res ~= nil then
     return phyPayload
   else
-    p("mic value verification failed")
+    logger.error("mic value verification failed")
     return nil
   end
 end

@@ -5,6 +5,7 @@ local MySQLDeviceInfo = require("../lora-lib/models/MySQLModels/DeviceInfo.lua")
 local MySQLDeviceRouting = require("../lora-lib/models/MySQLModels/DeviceRouting.lua")
 local RedisDeviceInfo = require("../lora-lib/models/RedisModels/DeviceInfo.lua")
 local config = require("../../server_cfg.lua")
+local logger = require("../log.lua")
 
 -- join请求流程 - 下行处理 - 更新设备路由信息
 local function updateJoinDeviceRouting(deviceStatus)
@@ -27,12 +28,12 @@ local function updateJoinDeviceRouting(deviceStatus)
   local res = MySQLDeviceConfig.readItem(whereOpts) -- mysql DeviceConfig
   if res then
     if res.frequencyPlan == nil then
-      p("DevAddr does not exist frequencyPlan in MySQL DeviceConfig")
+      logger.error("DevAddr does not exist frequencyPlan in MySQL DeviceConfig")
       return nil
     end
 
     if res.RX1DRoffset == nil and res.RX1DRoffset ~= 0 then
-      p("DevAddr does not exist RX1DRoffset in MySQL DeviceConfig")
+      logger.error("DevAddr does not exist RX1DRoffset in MySQL DeviceConfig")
       return nil
     end
 
@@ -100,7 +101,7 @@ local function updateJoinDeviceRouting(deviceStatus)
       DevAddr = updateOpts.DevAddr
     }
 
-    p("   update mysql device routing info:", updateOpts)
+    logger.info({"   update mysql device routing info, devaddr:", updateOpts.DevAddr})
     local res = MySQLDeviceRouting.UpdateItem(query, updateOpts)
     if res < 0 then
       return nil
@@ -120,7 +121,7 @@ local function updateJoinDeviceRouting(deviceStatus)
     -- p("function <RedisDeviceInfo.UpdateItem>:", res)
     return res
   end
-  p("DevAddr does not exist in DeviceConfig")
+  logger.error("DevAddr does not exist in DeviceConfig")
   return nil
 end
 
@@ -134,7 +135,7 @@ end
 
 -- join request 上行数据处理
 function joinRequestHandle(joinResArr)
-  p("server module _> join module, send join request message")
+  logger.info("server module _> join module, send join request message")
   return joinServer.handleMessage(joinResArr) -- 把joinRequest数据推送至join-server模块
 end
 

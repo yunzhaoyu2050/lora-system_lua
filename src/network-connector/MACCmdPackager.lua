@@ -1,6 +1,7 @@
 local utiles = require("../../utiles/utiles.lua")
 local buffer = require("buffer").Buffer
 local consts = require("../lora-lib/constants/constants.lua")
+local logger = require("../log.lua")
 
 -- mac命令打包
 function packager(macCmdArray)
@@ -22,8 +23,6 @@ function packager(macCmdArray)
           )
         end,
         [consts.LINKCHECK_CID] = function()
-          p("Margin:", utiles.printBuf(payloadJSON.Margin))
-          p("GwCnt:", utiles.printBuf(payloadJSON.GwCnt))
           macCommand =
             utiles.BufferConcat(
             {
@@ -157,13 +156,12 @@ function packager(macCmdArray)
           )
         end,
         [utiles.Default] = function()
-          p("Bad cid of MACCommand", cid)
+          logger.error({"Bad cid of MACCommand, cid:", cid})
         end
       }
     end
   end
-  p("macCommand:")
-  utiles.printBuf(macCommand)
+  logger.info({"macCommand:", utiles.BufferToHexString(macCommand)})
   return macCommand
 end
 

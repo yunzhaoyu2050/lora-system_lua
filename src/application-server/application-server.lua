@@ -1,5 +1,5 @@
 local nsMsgHandler = require("./nsMsgHandler.lua")
-
+local logger = require("../log.lua")
 function _process(messageTopic, message)
   if (messageTopic == "CloudPubToApp") then
   elseif (messageTopic == "ServerPubToApp") then
@@ -7,7 +7,7 @@ function _process(messageTopic, message)
   elseif (messageTopic == "HttpPubToApp") then
     -- protoBufUnit.loadAllData()
   else
-    p("Error topic ${message.topic}, Message ${message.value}", messageTopic, message)
+    logger.error("Error topic ${message.topic}, Message ${message.value}", messageTopic, message)
   end
 end
 return {

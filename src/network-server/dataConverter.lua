@@ -12,24 +12,7 @@ local utiles = require("../../utiles/utiles.lua")
 local DeviceInfoMysql = require("../lora-lib/models/MySQLModels/DeviceInfo.lua")
 
 local appDataHandler = require("./appDataHandler.lua")
--- local lcrypto = require("../../deps/luvit-github/deps/tls/lcrypto.lua")
--- local appDataHandler = require("./appDataHandler.lua")
-
--- function DataConverter(mqClient, redisConn, mysqlConn, log) {
---   this.deDuplication = new DeDuplication(redisConn.DeDuplication);
---   this.gatewayStatHandler = new GatewayStatHandler(mysqlConn.GatewayStatus);
---   this.DeviceInfoRedis = redisConn.DeviceInfo;
---   this.gatewayInfoRedis = redisConn.GatewayInfo;
---   this.redisConnMsgQue = redisConn.MessageQueue;
---   this.DeviceInfoMysql = mysqlConn.DeviceInfo;
---   this.GatewayInfo = mysqlConn.GatewayInfo;
---   this.appDataHandler = new AppDataHandler(mqClient, redisConn, mysqlConn, log);
---   this.mqClient = mqClient;
---   this.downlinkDataHandler = new DownlinkDataHandler(mqClient, redisConn, mysqlConn, log);
---   this.joinResHandler = new JoinResHandler(mqClient, redisConn, mysqlConn, log);
---   this.log = log;
-
--- }
+local logger = require("../log.lua")
 
 -- DataConverter.prototype.gatewayStatConverter = function (uplinkDataJson) {
 
@@ -73,15 +56,15 @@ local function appDataConverter(uplinkDataJson)
         appDataObject.AppEUI = res.AppEUI
         return appDataObject
       else
-        p("DevAddr AppEUI does not exist in mysql DeviceInfo")
+        logger.error("DevAddr AppEUI does not exist in mysql DeviceInfo")
         return nil
       end
     else
-      p("DevAddr FCntUp does not exist in redis DeviceInfo")
+      logger.error("DevAddr FCntUp does not exist in redis DeviceInfo")
       return nil
     end
   end
-  p("The uplink data has no {MACPayload.FRMPayload}")
+  logger.error("The uplink data has no {MACPayload.FRMPayload}")
   return nil
 end
 
@@ -95,14 +78,14 @@ function uplinkDataHandler(jsonData)
     if uplinkDataJson.rxpk ~= nil then -- Recive PUSH data
       -- Recive PUSH data from Node
       if uplinkDataJson.rxpk.data == nil then
-        p('Uplink Json has no "data" in rxpk')
+        logger.error('Uplink Json has no "data" in rxpk')
         return "other", nil
       end
 
       local messageType = uplinkDataJson.rxpk.data.MHDR.MType
 
       if messageType == consts.UNCONFIRMED_DATA_UP or messageType == consts.CONFIRMED_DATA_UP then -- Application message
-        p("receive App data message")
+        logger.info("receive App data message")
         local rxInfoArr = rxInfoConverter(uplinkDataJson)
         local appObj = appDataConverter(uplinkDataJson)
         if appObj ~= nil then
@@ -116,10 +99,10 @@ function uplinkDataHandler(jsonData)
           -- 答。 Proprietary messages 用来处理非标准的消息格式， 不能和标准消息互通， 只能用来和
           -- 具有相同拓展格式的消息进行通信。
           if messageType == consts.UNCONFIRMED_DATA_UP then
-            p("MType is UNCONFIRMED_DATA_UP, No need to send downstream data")
+            logger.warn("MType is UNCONFIRMED_DATA_UP, No need to send downstream data")
             return "other", nil
           elseif messageType == consts.CONFIRMED_DATA_UP then
-            p("MType is CONFIRMED_DATA_UP ...")
+            logger.info("MType is CONFIRMED_DATA_UP ...")
           end
 
           if uplinkInfo and uplinkInfo.appObj then
@@ -127,19 +110,19 @@ function uplinkDataHandler(jsonData)
             local appEUIStr = uplinkInfoAppObj.AppEUI
             ret = downlinkDataHandler.appDataDownlink(uplinkInfoAppObj, downlinkAppConverter)
           end
-          p("app module _> server module, send app accept message")
+          logger.info("app module _> server module, send app accept message")
           return "AppPubToServer", ret
         end
         return "other", nil
       end
 
       if messageType == consts.JS_MSG_TYPE.request then -- Join request message
-        p("receive Join request message")
+        logger.info("receive Join request message")
         ret = joinResHandler.joinRequestHandle(uplinkDataJson) -- 将Join request message推送至join-server模块
         if ret == nil then
           return "other", nil
         end
-        p("join module _> server module, send join accept message")
+        logger.info("join module _> server module, send join accept message")
         return "JoinPubToServer", ret -- 把数据推送至network-connector模块
       end
     elseif uplinkDataJson.stat ~= nil then -- Recive Stat data
@@ -155,26 +138,26 @@ function uplinkDataHandler(jsonData)
 
       if resuserID then
         -- local collectionName = consts.MONGO_USERCOLLECTION_PREFIX + resuserID
-        p("recv gateway stat data", uplinkDataJson)
+        logger.info({"recv gateway stat data", uplinkDataJson})
         return "other", nil
       else
-        p("No UserID in Reids about the gateway")
+        logger.error("No UserID in Reids about the gateway")
         return "other", nil
       end
     else
-      p('Error key value of received JSON (NO "rxpk" or "stat")')
+      logger.error('Error key value of received JSON (NO "rxpk" or "stat")')
       return "other", nil
     end
   elseif uplinkDataId == consts.UDP_ID_PULL_DATA then
     -- TODO:
-    p("Recive UDP Pull Data")
+    logger.info("Recive UDP Pull Data")
     return "other", nil
   elseif uplinkDataId == consts.UDP_ID_TX_ACK then
     -- TODO:
-    p("Recive UDP TX_ACK")
+    logger.info("Recive UDP TX_ACK")
     return "other", nil
   else
-    p("Error UDP package identifier")
+    logger.error("Error UDP package identifier")
     return "other", nil
   end
 end
@@ -241,9 +224,15 @@ function downlinkAppConverter(txJson, downlinkJson, uplinkInfo)
     FHDRJson.FCtrl = FCtrlJson
     FHDRJson.FCnt = buffer:new(consts.FCNT_LEN)
     -- // FHDRJson.FCnt.writeUInt32BE(txJson.DeviceInfo.AFCntDown);
-    FHDRJson.FCnt:writeUInt16LE(1, txJson.AFCntDown) -- writeUInt32BE
 
-    if downlinkJson.FOpts then
+    -- 如果采用16位帧计数， FCnt字段的值可以使用帧计数器的值， 此
+    -- 时有需要的话通过在前面填充0（ 值为0） 字节来补足； 如果采用32位帧计数， FCnt就对应计
+    -- 数器32位的16个低有效位(上行数据使用上行FCnt， 下行数据使用下行FCnt)。
+    FHDRJson.FCnt:writeUInt16BE(3, txJson.AFCntDown)
+
+    logger.info({" FHDRJson.FCnt:%s", utiles.BufferToHexString(FHDRJson.FCnt)})
+
+    if downlinkJson.FOpts and downlinkJson.FOpts.length ~= nil and downlinkJson.FOpts.length > 0 then
       FHDRJson.FOpts = downlinkJson.FOpts --[1] -- 当前只处理一个mac数据
     else
       FHDRJson.FOpts = buffer:new(0)
@@ -251,10 +240,10 @@ function downlinkAppConverter(txJson, downlinkJson, uplinkInfo)
 
     MACPayloadJson.FHDR = FHDRJson
 
-    if downlinkJson.isMacCmdInFRM and downlinkJson.FRMPayload.length > 0 then
+    if downlinkJson.isMacCmdInFRM and downlinkJson.FRMPayload ~= nil then
       MACPayloadJson.FPort = consts.MACCOMMANDPORT
       MACPayloadJson.FRMPayload = downlinkJson.FRMPayload
-    elseif downlinkJson.FRMPayload.length > 0 then
+    elseif uplinkInfo.MACPayload.FPort > 0 then
       MACPayloadJson.FPort = uplinkInfo.MACPayload.FPort
       MACPayloadJson.FRMPayload = downlinkJson.FRMPayload
     else
