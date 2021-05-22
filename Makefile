@@ -10,7 +10,7 @@ git:
 	@git submodule update --init --recursive
 luvi:
 	@echo "build luvi..."
-	@cd deps/luvi && make regular-shared && make && cd -
+	@cd deps/luvi && make tiny && make && cd -
 luvit:
 	@echo "build luvit..."
 	@cd deps/ && if [ ! -f "luvi-$(ARCH)" ];then \
