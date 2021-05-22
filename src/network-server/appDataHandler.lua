@@ -160,7 +160,7 @@ function handle(rxInfoArr, appObj)
     elseif adr == 1 then
       pubControllerModel = PubControllerModel:new(rxInfoArr, adr)
     else
-      logger.error("   Business data does not require mac command processing")
+      logger.info("   Business data does not require mac command processing")
       return nil
     end
 

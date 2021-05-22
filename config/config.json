@@ -14,7 +14,7 @@
     "logPath": "./"
   },
   "simusql": {
-    "appInfosql_syncTime": 5000, // 单位 s
+    "appInfosql_syncTime": 5000, // 单位 ms
     "deviceInfosql_syncTime": 1000,
     "deviceConfigsql_syncTime": 3000,
     "deviceRoutingsql_syncTime": 1000,

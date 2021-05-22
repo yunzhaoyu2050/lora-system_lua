@@ -16,5 +16,14 @@
     "model": "X02",
     "type": "outdoor",
     "gatewayId": "0004f2bffe31f6b4"
+  },
+  "0016c001ff199ef7": {
+    "RFChain": 0,
+    "userID": "zhaoyu",
+    "frequencyPlan": "China+470-510MHz",
+    "location": "E123,N111",
+    "model": "X02",
+    "type": "outdoor",
+    "gatewayId": "0016c001ff199ef7"
   }
 }

@@ -11,6 +11,7 @@ local buffer = require("buffer").Buffer
 local bit = require("bit")
 local utiles = require("../../utiles/utiles.lua")
 local logger = require("../log.lua")
+local crypto = require("../../deps/lua-openssl/lib/crypto.lua")
 
 -- @info phyLayer层解析
 -- Instance methods
@@ -242,8 +243,6 @@ local function macPayloadMICVerify(requiredFields, values, direction, phyPayload
     return nil
   end
 
-  -- local requiredFieldsTmp = 
-
   local recvMic = utiles.BufferToHexString(phyPayloadJSON.mic)
   local NwkSKey = values.NwkSKey
   local micCal = phyUtils.micCalculator(requiredFields, NwkSKey, direction) -- mic计算
@@ -318,7 +317,7 @@ function parser(phyPayloadRaw)
   end
   local tmp = basexx.from_base64(phyPayloadRaw) -- base64 to string
   local phyPayload = buffer:new(tmp)
-  logger.info({"   phyPayload base64:", phyPayload:toString()})
+  -- logger.info({"   phyPayload base64:", crypto.hex(phyPayload:toString())})
   local phyPayloadJSON = phyPayloadParser(phyPayload)
 
   -- 判断Data message type

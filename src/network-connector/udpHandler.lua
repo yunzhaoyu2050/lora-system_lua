@@ -8,16 +8,16 @@ local logger = require("../log.lua")
 local function txAckParser(txAckData)
   local txAckJSON
   txAckJSON = json.parse(txAckData)
----------------------------------------error------------------------------------------
--- Text              Description
--- TOO_LATE,         Rejected because it was already too late to program this packet for downlink
--- TOO_EARLY,        Rejected because downlink packet timestamp was received by the gateway too long before the scheduled transmission time
--- COLLISION_PACKET, Rejected because there was already a packet programmed in requested timeframe
--- COLLISION_BEACON, Rejected because there was already a beacon planned in requested timeframe
--- TX_FREQ,          Rejected because requested frequency is not supported by TX RF chain
--- TX_POWER,         Rejected because requested power is not supported by gateway
--- GPS_UNLOCKED,     Rejected because GPS is unlocked, so GPS timestamp cannot be used
---         Table 10: Description of TX_ACK error values
+  ---------------------------------------error------------------------------------------
+  -- Text              Description
+  -- TOO_LATE,         Rejected because it was already too late to program this packet for downlink
+  -- TOO_EARLY,        Rejected because downlink packet timestamp was received by the gateway too long before the scheduled transmission time
+  -- COLLISION_PACKET, Rejected because there was already a packet programmed in requested timeframe
+  -- COLLISION_BEACON, Rejected because there was already a beacon planned in requested timeframe
+  -- TX_FREQ,          Rejected because requested frequency is not supported by TX RF chain
+  -- TX_POWER,         Rejected because requested power is not supported by gateway
+  -- GPS_UNLOCKED,     Rejected because GPS is unlocked, so GPS timestamp cannot be used
+  --         Table 10: Description of TX_ACK error values
   return txAckJSON
 end
 
@@ -30,7 +30,13 @@ function parser(data)
     return nil
   end
   if #data < consts.UDP_DATA_BASIC_LENGTH then
-    logger.error("Invalid length of udp data, greater than ${consts.UDP_DATA_BASIC_LENGTH - 1} bytes is mandatory")
+    logger.error(
+      {
+        "Invalid length of udp data, greater than consts.UDP_DATA_BASIC_LENGTH - 1 bytes is mandatory",
+        dataLen = #data,
+        BASIC_LENGTH = consts.UDP_DATA_BASIC_LENGTH
+      }
+    )
     return nil
   end
 
@@ -68,10 +74,7 @@ function parser(data)
     udpJSON.DataType = "PULL_DATA"
   elseif identifier == consts.UDP_ID_TX_ACK then
     udpJSON.gatewayId = utiles.BufferToHexString(recvData, consts.UDP_GW_ID_OFFSET + 1, consts.UDP_JSON_OBJ_OFFSET)
-    -- utiles.printBuf(recvData)
     local txAckBuf = utiles.BufferSlice(recvData, 5, recvData.length)
-    -- p("   txAckBuf:")
-    -- utiles.printBuf(txAckBuf)
     udpJSON.txAckData = txAckParser(recvData:toString(consts.UDP_TX_ACK_PAYLOAD_OFFSET + 1))
     udpJSON.DataType = "TX_ACK"
 
@@ -95,7 +98,7 @@ end
 -- 下行处理打包数据
 local function packager(requiredFields)
   if requiredFields == nil then
-    logger.error("function <packager>, requiredFields param is nil")
+    logger.error("requiredFields param is nil")
     return nil
   end
   -- TODO-Schema validation
@@ -103,15 +106,12 @@ local function packager(requiredFields)
   data:writeUInt8(consts.UDP_VERSION_OFFSET + 1, requiredFields.version)
   utiles.BufferFromHexString(data, consts.UDP_TOKEN_OFFSET + 1, requiredFields.token)
   data:writeUInt8(consts.UDP_IDENTIFIER_OFFSET + 1, requiredFields.identifier)
-  -- utiles.printBuf(data)
   if requiredFields.identifier == consts.UDP_ID_PUSH_ACK then
     -- break
   elseif requiredFields.identifier == consts.UDP_ID_PULL_ACK then
-    -- p(" data:")utiles.printBuf(data)
     -- TODO: PULL_ACK的长度是 4 + 8(Gateway EUI) > consts.UDP_DOWNLINK_BASIC_LEN
     local idBuf = buffer:new(consts.GATEWAYID_LEN)
     utiles.BufferFromHexString(idBuf, 1, requiredFields.gatewayId)
-    -- p(" idBuf:")utiles.printBuf(idBuf)
     data = utiles.BufferConcat(data, idBuf)
   elseif requiredFields.identifier == consts.UDP_ID_PULL_RESP then
     local txpk = {
@@ -140,7 +140,7 @@ end
 function ACK(incomingJSON)
   logger.info("server -> gateway, data process")
   if incomingJSON == nil then
-    logger.error("function <ACK>, incomingJSON param is nil")
+    logger.error("incomingJSON param is nil")
     return nil
   end
   local identifierTemp = {

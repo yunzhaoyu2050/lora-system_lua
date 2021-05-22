@@ -8,6 +8,7 @@ local basexx = require("../../deps/basexx/lib/basexx.lua")
 -- local utiles = require("../../utiles/utiles.lua")
 -- local timer = require('timer')
 local logger = require("../log.lua")
+local crypto = require("../../deps/lua-openssl/lib/crypto.lua")
 
 -- connector模块任务
 
@@ -17,7 +18,7 @@ function UplinkTask()
     "message",
     function(message, udpInfo)
       logger.info("------------------------------------start--------------------------------------------")
-      logger.info({"recv message:", message, ", ip:", udpInfo.ip, ", port:", udpInfo.port})
+      logger.info({"recv message:", ", ip:", udpInfo.ip, ", port:", udpInfo.port})
       -- 1. udp层粗解析
       local udpUlJSON = udpHandler.parser(message)
       if udpUlJSON == nil then
@@ -45,7 +46,15 @@ function UplinkTask()
       ret = udpHandler.ACK(udpUlJSON)
       if ret ~= nil then
         udp.Send(ret, udpInfo)
-        logger.info({"udp send <ACK> to gateway, message:", ret, ", udp-ip:", udpInfo.ip, ", udp-port:", udpInfo.port})
+        logger.info(
+          {
+            "udp send <ACK> to gateway, message:",
+            ", udp-ip:",
+            udpInfo.ip,
+            ", udp-port:",
+            udpInfo.port
+          }
+        )
         if gatewayConfig.identifier == consts.UDP_ID_PULL_DATA then
           return 0
         end
@@ -89,11 +98,6 @@ function DownlinkTask(message)
     local udpInfo = gatewayInfoRedis.Read(message.gatewayId) -- 取得网关信息
     if udpInfo then
       local cliUdpInfo = {}
-      -- if message.identifier == consts.UDP_ID_PULL_DATA then -- TODO:
-      --   cliUdpInfo.port = udpInfo.pullPort
-      -- else
-      --   cliUdpInfo.port = udpInfo.pushPort
-      -- end
       if udpInfo.pullPort == nil then
         -- PULL_RESP通过* pull_port *发送到网关。 因此，网关必须在可以接收任何PULL_RESP之前发送PULL_DATA。
         logger.error(
@@ -105,12 +109,10 @@ function DownlinkTask(message)
       cliUdpInfo.ip = udpInfo.address
       logger.info(
         {
-          "udp send message to gateway, message:%s, udp-ip:%s, udp-port:%d",
+          "udp send message to gateway, message:,",
           cliUdpInfo.ip,
           "udp-port:",
           cliUdpInfo.port,
-          "message:<",
-          udpDlData,
           ">end"
         }
       )

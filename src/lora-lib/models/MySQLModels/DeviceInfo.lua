@@ -95,7 +95,7 @@ end
 
 local function GetInputVal(index)
   for k, v in pairs(index) do
-    return k, v -- 按照输入逻辑只为一个成员
+    return k, v
   end
 end
 

@@ -230,7 +230,7 @@ function downlinkAppConverter(txJson, downlinkJson, uplinkInfo)
     -- 数器32位的16个低有效位(上行数据使用上行FCnt， 下行数据使用下行FCnt)。
     FHDRJson.FCnt:writeUInt16BE(3, txJson.AFCntDown)
 
-    logger.info({" FHDRJson.FCnt:%s", utiles.BufferToHexString(FHDRJson.FCnt)})
+    logger.info({" FHDRJson.FCnt:", utiles.BufferToHexString(FHDRJson.FCnt)})
 
     if downlinkJson.FOpts and downlinkJson.FOpts.length ~= nil and downlinkJson.FOpts.length > 0 then
       FHDRJson.FOpts = downlinkJson.FOpts --[1] -- 当前只处理一个mac数据

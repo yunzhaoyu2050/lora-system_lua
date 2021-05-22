@@ -1,7 +1,7 @@
 
 ARCH:=$(shell uname -m)
 
-.PHONY:all clean
+.PHONY:all clean install
 
 all:git luvi luvit openssl luv
 	@echo "build end..."
@@ -22,3 +22,5 @@ clean:
 	@cd deps/luv && make clean && cd -
 	@cd deps/lua-openssl/ && make clean && cd -
 	@cd deps/ && rm -f luvi-$(ARCH) && rm -f luvit-$(ARCH)
+
+install:

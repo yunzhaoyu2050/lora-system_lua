@@ -280,7 +280,7 @@ function handler(rxpk)
   local returnAcptMsg = function()
     local acptPHY = joinAcptPHYPackager(_acpt)
     logger.info("downstream data processing...")
-    logger.info({"   join Acpt PHY Packager:%s", acptPHY})
+    logger.info({"   join Acpt PHY Packager:", acptPHY})
     return acptPHY
   end
 

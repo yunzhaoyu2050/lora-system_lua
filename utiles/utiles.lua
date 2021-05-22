@@ -67,7 +67,7 @@ function BufferConcat(srcBuf, dstBuf)
       newBufLen = newBufLen + srcBuf[i].length
     end
     newBuf = buffer:new(newBufLen)
-    BufferFill(newBuf,0)
+    BufferFill(newBuf, 0)
     local offset = 0
     for i = 1, #srcBuf do
       if i == 1 then
