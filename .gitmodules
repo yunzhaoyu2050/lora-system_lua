@@ -7,6 +7,7 @@
 [submodule "deps/lua-openssl"]
 	path = deps/lua-openssl
 	url = https://github.com/yunzhaoyu2050/lua-openssl.git
+	branch = master
 [submodule "deps/luv"]
 	path = deps/luv
 	url = https://github.com/luvit/luv.git
@@ -19,6 +20,7 @@
 [submodule "deps/lualogging"]
 	path = deps/lualogging
 	url = https://github.com/yunzhaoyu2050/lualogging.git
+	branch = master
 [submodule "test/lora-motes-emulator"]
 	path = test/lora-motes-emulator
 	url = https://github.com/yunzhaoyu2050/lora-motes-emulator.git
